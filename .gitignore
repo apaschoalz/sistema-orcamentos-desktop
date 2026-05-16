@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+
+# Build React
+build/
+
+# Release / Instaladores gerados (não versionar binários no código)
+release/
+
+# Banco de dados local (cada máquina tem o seu)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+logs/
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.production.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Electron cache
+.electron/
