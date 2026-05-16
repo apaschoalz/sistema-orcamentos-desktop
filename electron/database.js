@@ -401,6 +401,18 @@ class AppDatabase {
                 valor TEXT
             )
         `);
+
+        // Fila de sincronização offline (operações que falharam sem internet)
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS pending_sync (
+                id TEXT PRIMARY KEY,
+                table_name TEXT NOT NULL,
+                record_data TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                retry_count INTEGER DEFAULT 0
+            )
+        `);
     }
 
     insertDefaultConfig() {
@@ -622,6 +634,11 @@ class AppDatabase {
         `).all(clienteId);
     }
 
+    // Busca orçamento pelo número (para detectar conflitos de numeração)
+    getOrcamentoByNumero(numero) {
+        return this.db.prepare('SELECT * FROM orcamentos WHERE numero = ?').get(numero);
+    }
+
     // VENDAS
     // ========================================
 
@@ -745,7 +762,7 @@ class AppDatabase {
 
     createOrcamento(orcamento) {
         const id = orcamento.id || uuidv4();
-        const numero = orcamento.numero || this.getNextNumero();
+        let numero = orcamento.numero || this.getNextNumero();
 
         const stmt = this.db.prepare(`
             INSERT INTO orcamentos (id, numero, cliente_id, vendedor, status, valor_total, 
@@ -753,22 +770,37 @@ class AppDatabase {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        stmt.run(
-            id,
-            numero,
-            orcamento.cliente_id || null,
-            orcamento.vendedor || null,
-            orcamento.status || 'Pendente',
-            orcamento.valor_total || 0,
-            orcamento.observacoes || null,
-            orcamento.prazo_pagamento || null,
-            orcamento.prazo_entrega || null,
-            orcamento.garantia || null,
-            orcamento.pdf_path || null,
-            uuidv4()
-        );
+        const doInsert = (numAttempt) => {
+            try {
+                stmt.run(
+                    id,
+                    numAttempt,
+                    orcamento.cliente_id || null,
+                    orcamento.vendedor || null,
+                    orcamento.status || 'Pendente',
+                    orcamento.valor_total || 0,
+                    orcamento.observacoes || null,
+                    orcamento.prazo_pagamento || null,
+                    orcamento.prazo_entrega || null,
+                    orcamento.garantia || null,
+                    orcamento.pdf_path || null,
+                    uuidv4()
+                );
+                return numAttempt;
+            } catch (e) {
+                // Conflito de número único (dois terminais criaram ao mesmo tempo)
+                if (e.message && e.message.includes('UNIQUE constraint failed: orcamentos.numero')) {
+                    const novoNumero = this.getNextNumero();
+                    console.warn(`[DB] Conflito de número ao criar orçamento: ${numAttempt} -> ${novoNumero}`);
+                    return doInsert(novoNumero);
+                }
+                throw e;
+            }
+        };
 
-        const newOrcamento = { id, numero, ...orcamento };
+        numero = doInsert(numero);
+
+        const newOrcamento = { id, numero, ...orcamento, numero };
         if (this.syncService) this.syncService.pushData('orcamentos', newOrcamento, 'INSERT');
         return newOrcamento;
     }
@@ -1079,6 +1111,37 @@ class AppDatabase {
         this.db.prepare('DELETE FROM custos WHERE id = ?').run(id);
         if (this.syncService) this.syncService.pushData('custos', { id }, 'DELETE');
         return true;
+    }
+
+    // ========================================
+    // FILA DE SINCRONIZAÇÃO OFFLINE
+    // ========================================
+
+    addPendingSync(tableName, recordData, operation) {
+        const id = uuidv4();
+        this.db.prepare(`
+            INSERT INTO pending_sync (id, table_name, record_data, operation)
+            VALUES (?, ?, ?, ?)
+        `).run(id, tableName, JSON.stringify(recordData), operation);
+        console.log(`[DB] Operação enfileirada para sync offline: ${operation} ${tableName} ${recordData.id || ''}`);
+        return id;
+    }
+
+    getPendingSync() {
+        return this.db.prepare('SELECT * FROM pending_sync ORDER BY created_at ASC').all()
+            .map(row => ({ ...row, record_data: JSON.parse(row.record_data) }));
+    }
+
+    removePendingSync(id) {
+        this.db.prepare('DELETE FROM pending_sync WHERE id = ?').run(id);
+    }
+
+    incrementPendingSyncRetry(id) {
+        this.db.prepare('UPDATE pending_sync SET retry_count = retry_count + 1 WHERE id = ?').run(id);
+    }
+
+    clearPendingSync() {
+        this.db.prepare('DELETE FROM pending_sync').run();
     }
 
     // ========================================
