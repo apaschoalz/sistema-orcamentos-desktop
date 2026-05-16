@@ -5,7 +5,7 @@
   "author": "Entre Tramas Interiores",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paschoalandre1984-rgb/sistema-orcamentos-desktop.git"
+    "url": "https://github.com/apaschoalz/sistema-orcamentos-desktop.git"
   },
   "main": "electron/main.js",
   "scripts": {
@@ -24,7 +24,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "paschoalandre1984-rgb",
+        "owner": "apaschoalz",
         "repo": "sistema-orcamentos-desktop"
       }
     ],
