@@ -670,9 +670,10 @@ class AppDatabase {
             INSERT INTO vendas (
                 id, numero, cliente_id, orcamento_id, data_venda, 
                 valor, custo, costureira, instalacao, outros_custos, 
-                lucro, observacoes, valor_entrada, falta_pagar, desconto
+                lucro, observacoes, valor_entrada, falta_pagar, desconto,
+                tipo_fluxo, etapa_atual, nome_costureira, nome_instalador, data_entrega_prevista
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -687,13 +688,18 @@ class AppDatabase {
             venda.instalacao || 0,
             venda.outros_custos || 0,
             venda.lucro || 0,
-            venda.observacoes,
+            venda.observacoes || null,
             venda.valor_entrada || 0,
             venda.falta_pagar || 0,
-            venda.desconto || 0
+            venda.desconto || 0,
+            venda.tipo_fluxo || null,
+            venda.etapa_atual || null,
+            venda.nome_costureira || null,
+            venda.nome_instalador || null,
+            venda.data_entrega_prevista || null
         );
 
-        const newVenda = { ...venda, id };
+        const newVenda = this.getVendaById(id);
         if (this.syncService) this.syncService.pushData('vendas', newVenda, 'INSERT');
         return newVenda;
     }
@@ -890,50 +896,62 @@ class AppDatabase {
     }
 
     saveItensOrcamento(orcamentoId, itens) {
-        // 1. Obter itens antigos para saber o que deletar na nuvem
+        // 1. Obter itens antigos
         const oldItems = this.getItensOrcamento(orcamentoId);
+        const oldIds = oldItems.map(i => i.id);
 
-        // 2. Deletar itens existentes localmente
-        this.db.prepare('DELETE FROM itens_orcamento WHERE orcamento_id = ?').run(orcamentoId);
+        // 2. Garantir IDs para os novos itens
+        const newItensWithIds = itens.map(item => ({ ...item, id: item.id || uuidv4() }));
+        const newIds = newItensWithIds.map(i => i.id);
 
-        // 3. Sincronizar deleção com a nuvem
-        if (this.syncService) {
-            oldItems.forEach(item => {
-                this.syncService.pushData('itens_orcamento', { id: item.id }, 'DELETE');
-            });
-        }
+        // 3. Descobrir quais itens foram removidos
+        const toDeleteIds = oldIds.filter(id => !newIds.includes(id));
 
-        // 4. Preparar inserção
-        const stmt = this.db.prepare(`
-            INSERT INTO itens_orcamento (id, orcamento_id, quantidade, descricao, valor_unitario, valor_total, categoria)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
+        // 4. Deletar localmente apenas os removidos
+        if (toDeleteIds.length > 0) {
+            const deleteStmt = this.db.prepare('DELETE FROM itens_orcamento WHERE id = ?');
+            this.db.transaction((ids) => {
+                for (const id of ids) deleteStmt.run(id);
+            })(toDeleteIds);
 
-        const savedItems = [];
-
-        for (const item of itens) {
-            const id = item.id || uuidv4(); // Garante ID
-            const itemToSave = { ...item, id, orcamento_id: orcamentoId };
-
-            stmt.run(
-                id,
-                orcamentoId,
-                item.quantidade || 1,
-                item.descricao,
-                item.valor_unitario || 0,
-                item.valor_total || 0,
-                item.categoria || 'Outros'
-            );
-
-            savedItems.push(itemToSave);
-
+            // Sincronizar deleção com a nuvem
             if (this.syncService) {
-                this.syncService.pushData('itens_orcamento', itemToSave, 'INSERT');
+                toDeleteIds.forEach(id => {
+                    this.syncService.pushData('itens_orcamento', { id }, 'DELETE');
+                });
             }
         }
 
-        // Atualizar valor total do orçamento
-        const total = itens.reduce((sum, item) => sum + (item.valor_total || 0), 0);
+        // 5. Inserir ou atualizar localmente os itens presentes
+        const upsertStmt = this.db.prepare(`
+            INSERT OR REPLACE INTO itens_orcamento (id, orcamento_id, quantidade, descricao, valor_unitario, valor_total, categoria)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        this.db.transaction((itemsToSave) => {
+            for (const item of itemsToSave) {
+                upsertStmt.run(
+                    item.id,
+                    orcamentoId,
+                    item.quantidade || 1,
+                    item.descricao || '',
+                    item.valor_unitario || 0,
+                    item.valor_total || 0,
+                    item.categoria || 'Outros'
+                );
+            }
+        })(newItensWithIds);
+
+        // 6. Sincronizar os itens (inserção/atualização) com a nuvem
+        if (this.syncService) {
+            newItensWithIds.forEach(item => {
+                const itemToSave = { ...item, orcamento_id: orcamentoId };
+                this.syncService.pushData('itens_orcamento', itemToSave, 'INSERT');
+            });
+        }
+
+        // 7. Atualizar valor total do orçamento
+        const total = newItensWithIds.reduce((sum, item) => sum + (item.valor_total || 0), 0);
         this.db.prepare('UPDATE orcamentos SET valor_total = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(total, orcamentoId);
 
         // Notificar sync do orçamento atualizado (valor total mudou)
@@ -942,7 +960,7 @@ class AppDatabase {
             this.syncService.pushData('orcamentos', orcAtualizado, 'UPDATE');
         }
 
-        return savedItems;
+        return newItensWithIds;
     }
 
     // Upsert de um único item de orçamento (usado pelo sync Realtime)
