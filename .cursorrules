@@ -1,0 +1,6 @@
+Ler e seguir estritamente as instruções e regras arquiteturais definidas no arquivo AI_INSTRUCTIONS.md na raiz deste repositório antes de propor ou executar qualquer modificação neste projeto. O arquivo contém:
+- Stack tecnológico (React, Electron, SQLite, Supabase)
+- Arquitetura de Sincronização Local-First
+- Tratamento de Race Conditions e Schema Constraints
+- Regras de Design (Ex: PROIBIDO uso de emojis)
+- Comandos e fluxo de Deploy/AutoUpdate
