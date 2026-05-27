@@ -375,6 +375,85 @@ class SupabaseSync {
     // HELPERS
     // ========================================
 
+    // ========================================
+    // SYNC DE ITENS (confiável, em batch)
+    // ========================================
+
+    // Envia TODOS os itens de um orçamento para o Supabase em uma única chamada batch.
+    // Muito mais confiável do que N pushData individuais fire-and-forget.
+    async pushBatchItens(orcamentoId, itens) {
+        if (!this.checkConnection()) {
+            // Sem conexão: enfileirar cada item individualmente
+            itens.forEach(item => {
+                this.db.addPendingSync('itens_orcamento', { ...item, orcamento_id: orcamentoId }, 'INSERT');
+            });
+            return;
+        }
+        if (!itens || itens.length === 0) return;
+
+        const cleanItens = itens.map(item => ({
+            id:             item.id,
+            orcamento_id:   orcamentoId,
+            quantidade:     item.quantidade || 1,
+            descricao:      item.descricao || '',
+            valor_unitario: item.valor_unitario || 0,
+            valor_total:    item.valor_total || 0,
+            categoria:      item.categoria || 'Outros'
+        }));
+
+        try {
+            const { error } = await this.supabase
+                .from('itens_orcamento')
+                .upsert(cleanItens);
+            if (error) throw error;
+            console.log(`[Sync] ${cleanItens.length} itens do orçamento ${orcamentoId} enviados ao Supabase.`);
+        } catch (error) {
+            if (this._isNetworkError(error)) {
+                // Offline: enfileirar
+                cleanItens.forEach(item => {
+                    this.db.addPendingSync('itens_orcamento', item, 'INSERT');
+                });
+                console.warn(`[Sync] Sem internet — ${cleanItens.length} itens enfileirados para retry.`);
+            } else {
+                console.error('[Sync] Erro ao fazer push batch de itens:', error);
+            }
+        }
+    }
+
+    // Puxa os itens de um orçamento diretamente do Supabase e faz upsert local.
+    // Garante que o terminal tenha os itens mais recentes mesmo que tenha perdido
+    // eventos Realtime.
+    async syncItensFromRemote(orcamentoId) {
+        if (!this.checkConnection()) return;
+        try {
+            const { data, error } = await this.supabase
+                .from('itens_orcamento')
+                .select('*')
+                .eq('orcamento_id', orcamentoId);
+            if (error) throw error;
+            if (!data || data.length === 0) return;
+
+            this.db.setSyncing(true);
+            try {
+                const stmt = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO itens_orcamento
+                    (id, orcamento_id, quantidade, descricao, valor_unitario, valor_total, categoria)
+                    VALUES (@id, @orcamento_id, @quantidade, @descricao, @valor_unitario, @valor_total, @categoria)
+                `);
+                this.db.db.transaction((rows) => {
+                    for (const r of rows) stmt.run(r);
+                })(data);
+            } finally {
+                this.db.setSyncing(false);
+            }
+
+            console.log(`[Sync] syncItensFromRemote: ${data.length} itens do orçamento ${orcamentoId} sincronizados.`);
+            this.emitSyncEvent({ type: 'upsert', table: 'itens_orcamento', orcamento_id: orcamentoId });
+        } catch (error) {
+            console.error('[Sync] Erro em syncItensFromRemote:', error);
+        }
+    }
+
     // Reserva um número único no Supabase via função atômica (UPDATE...RETURNING)
     // Requer que a função next_orcamento_numero() exista no Supabase (ver docs/supabase-sequencia.sql)
     async reservarNumeroOrcamento() {

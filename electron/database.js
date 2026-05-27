@@ -1,4 +1,4 @@
-﻿const Database = require('better-sqlite3');
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
@@ -31,16 +31,16 @@ class AppDatabase {
 
     performStartupBackup() {
         const dbPath = this.getDbPath();
-        // Se o banco nÃ£o existe ainda, nÃ£o tem o que fazer backup
+        // Se o banco não existe ainda, não tem o que fazer backup
         if (!fs.existsSync(dbPath)) return;
 
         const backupDir = this.getBackupPath();
-        // Garantir diretÃ³rio de backups
+        // Garantir diretório de backups
         if (!fs.existsSync(backupDir)) {
             try {
                 fs.mkdirSync(backupDir, { recursive: true });
             } catch (err) {
-                console.error('Erro ao criar diretÃ³rio de backups:', err);
+                console.error('Erro ao criar diretório de backups:', err);
                 return;
             }
         }
@@ -51,10 +51,10 @@ class AppDatabase {
 
         try {
             fs.copyFileSync(dbPath, backupFile);
-            console.log('Backup de inicializaÃ§Ã£o criado:', backupFile);
+            console.log('Backup de inicialização criado:', backupFile);
             this.cleanupOldBackups(backupDir);
         } catch (err) {
-            console.error('Erro ao criar backup de inicializaÃ§Ã£o:', err);
+            console.error('Erro ao criar backup de inicialização:', err);
         }
     }
 
@@ -66,17 +66,17 @@ class AppDatabase {
 
             // Se tiver mais que 30, deletar os mais antigos
             if (startupBackups.length > 30) {
-                // Sort padrÃ£o (alfabÃ©tica) funciona bem para timestamps ISO (YYYY-MM-DD...)
+                // Sort padrão (alfabética) funciona bem para timestamps ISO (YYYY-MM-DD...)
                 startupBackups.sort();
 
-                // Os primeiros da lista sÃ£o os mais antigos
+                // Os primeiros da lista são os mais antigos
                 const countToDelete = startupBackups.length - 30;
                 const filesToDelete = startupBackups.slice(0, countToDelete);
 
                 filesToDelete.forEach(file => {
                     const filePath = path.join(backupDir, file);
                     fs.unlinkSync(filePath);
-                    console.log('Backup antigo removido (rotaÃ§Ã£o):', file);
+                    console.log('Backup antigo removido (rotação):', file);
                 });
             }
         } catch (err) {
@@ -109,14 +109,14 @@ class AppDatabase {
             }
         }
 
-        // Arquivo Ãºnico que serÃ¡ sobrescrito
+        // Arquivo único que será sobrescrito
         const backupFile = path.join(backupDir, 'orcamentos_auto_current.db');
 
-        // Usar API de backup do better-sqlite3 (nÃ£o bloqueia leitura, seguro com banco aberto)
+        // Usar API de backup do better-sqlite3 (não bloqueia leitura, seguro com banco aberto)
         this.db.backup(backupFile)
             .then(() => {
                 const time = new Date().toLocaleTimeString();
-                console.log(`Backup recorrente atualizado com sucesso Ã s ${time}:`, backupFile);
+                console.log(`Backup recorrente atualizado com sucesso às ${time}:`, backupFile);
             })
             .catch((err) => {
                 console.error('Erro no backup recorrente:', err);
@@ -124,12 +124,12 @@ class AppDatabase {
     }
 
     initialize() {
-        // 1. Relizar Backup de InicializaÃ§Ã£o (antes de mexer no banco)
+        // 1. Relizar Backup de Inicialização (antes de mexer no banco)
         this.performStartupBackup();
 
         const dbPath = this.getDbPath();
 
-        // Garantir que o diretÃ³rio existe
+        // Garantir que o diretório existe
         const dir = path.dirname(dbPath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -141,10 +141,10 @@ class AppDatabase {
         // Criar tabelas
         this.createTables();
 
-        // MigraÃ§Ã£o: adicionar coluna numero se nÃ£o existir
+        // Migração: adicionar coluna numero se não existir
         this.runMigrations();
 
-        // Inserir configuraÃ§Ãµes padrÃ£o
+        // Inserir configurações padrão
         this.insertDefaultConfig();
 
         // 2. Iniciar agendador de backup recorrente
@@ -155,22 +155,22 @@ class AppDatabase {
 
     runMigrations() {
         try {
-            // MigraÃ§Ãµes Clientes
+            // Migrações Clientes
             const columnsClientes = this.db.prepare("PRAGMA table_info(clientes)").all();
 
             if (!columnsClientes.some(col => col.name === 'numero')) {
                 this.db.exec("ALTER TABLE clientes ADD COLUMN numero TEXT");
-                console.log('MigraÃ§Ã£o: coluna numero adicionada em clientes');
+                console.log('Migração: coluna numero adicionada em clientes');
             }
 
             if (!columnsClientes.some(col => col.name === 'complemento')) {
                 this.db.exec("ALTER TABLE clientes ADD COLUMN complemento TEXT");
-                console.log('MigraÃ§Ã£o: coluna complemento adicionada em clientes');
+                console.log('Migração: coluna complemento adicionada em clientes');
             }
 
-            // MigraÃ§Ãµes Vendas (Workflow)
-            // Verificar colunas em vendas (pode nÃ£o existir ainda se for primeira execuÃ§Ã£o, mas createTables cuida disso.
-            // Se tabela jÃ¡ existe, precisamos alterar)
+            // Migrações Vendas (Workflow)
+            // Verificar colunas em vendas (pode não existir ainda se for primeira execução, mas createTables cuida disso.
+            // Se tabela já existe, precisamos alterar)
             const tableVendasExists = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='vendas'").get();
 
             if (tableVendasExists) {
@@ -178,45 +178,45 @@ class AppDatabase {
 
                 if (!columnsVendas.some(col => col.name === 'tipo_fluxo')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN tipo_fluxo TEXT");
-                    console.log('MigraÃ§Ã£o: coluna tipo_fluxo adicionada em vendas');
+                    console.log('Migração: coluna tipo_fluxo adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'etapa_atual')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN etapa_atual TEXT");
-                    console.log('MigraÃ§Ã£o: coluna etapa_atual adicionada em vendas');
+                    console.log('Migração: coluna etapa_atual adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'nome_costureira')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN nome_costureira TEXT");
-                    console.log('MigraÃ§Ã£o: coluna nome_costureira adicionada em vendas');
+                    console.log('Migração: coluna nome_costureira adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'data_entrega_prevista')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN data_entrega_prevista DATE");
-                    console.log('MigraÃ§Ã£o: coluna data_entrega_prevista adicionada em vendas');
+                    console.log('Migração: coluna data_entrega_prevista adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'nome_instalador')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN nome_instalador TEXT");
-                    console.log('MigraÃ§Ã£o: coluna nome_instalador adicionada em vendas');
+                    console.log('Migração: coluna nome_instalador adicionada em vendas');
                 }
 
                 // Novas colunas Vendas (Entrada / Falta Pagar / Desconto)
                 if (!columnsVendas.some(col => col.name === 'valor_entrada')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN valor_entrada REAL DEFAULT 0");
-                    console.log('MigraÃ§Ã£o: coluna valor_entrada adicionada em vendas');
+                    console.log('Migração: coluna valor_entrada adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'falta_pagar')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN falta_pagar REAL DEFAULT 0");
-                    console.log('MigraÃ§Ã£o: coluna falta_pagar adicionada em vendas');
+                    console.log('Migração: coluna falta_pagar adicionada em vendas');
                 }
                 if (!columnsVendas.some(col => col.name === 'desconto')) {
                     this.db.exec("ALTER TABLE vendas ADD COLUMN desconto REAL DEFAULT 0");
-                    console.log('MigraÃ§Ã£o: coluna desconto adicionada em vendas');
+                    console.log('Migração: coluna desconto adicionada em vendas');
                 }
             }
 
-            // MigraÃ§Ã£o: tabela vendas (Create if not exists jÃ¡ estÃ¡ no createTables, mas mantendo histÃ³rico aqui se necessÃ¡rio)
+            // Migração: tabela vendas (Create if not exists já está no createTables, mas mantendo histórico aqui se necessário)
             /* 
-               A lÃ³gica original criava a tabela no runMigrations se nÃ£o existisse, 
-               mas o ideal Ã© deixar o createTables cuidar da criaÃ§Ã£o inicial completa 
-               e aqui sÃ³ ALTERs. Vou manter o CREATE TABLE abaixo mas ele tem IF NOT EXISTS.
+               A lógica original criava a tabela no runMigrations se não existisse, 
+               mas o ideal é deixar o createTables cuidar da criação inicial completa 
+               e aqui só ALTERs. Vou manter o CREATE TABLE abaixo mas ele tem IF NOT EXISTS.
             */
             this.db.exec(`
                 CREATE TABLE IF NOT EXISTS vendas (
@@ -245,29 +245,29 @@ class AppDatabase {
                 )
             `);
 
-            // Ãndices para vendas
+            // Índices para vendas
             this.db.exec(`
                 CREATE INDEX IF NOT EXISTS idx_vendas_cliente_id ON vendas(cliente_id);
                 CREATE INDEX IF NOT EXISTS idx_vendas_orcamento_id ON vendas(orcamento_id);
             `);
 
 
-            // MigraÃ§Ãµes Itens OrÃ§amento
+            // Migrações Itens Orçamento
             const columnsItens = this.db.prepare("PRAGMA table_info(itens_orcamento)").all();
             if (!columnsItens.some(col => col.name === 'categoria')) {
                 this.db.exec("ALTER TABLE itens_orcamento ADD COLUMN categoria TEXT");
-                console.log('MigraÃ§Ã£o: coluna categoria adicionada em itens_orcamento');
+                console.log('Migração: coluna categoria adicionada em itens_orcamento');
             }
 
-            // MigraÃ§Ãµes Custos
+            // Migrações Custos
             const columnsCustos = this.db.prepare("PRAGMA table_info(custos)").all();
             if (!columnsCustos.some(col => col.name === 'fornecedor')) {
                 this.db.exec("ALTER TABLE custos ADD COLUMN fornecedor TEXT");
-                console.log('MigraÃ§Ã£o: coluna fornecedor adicionada em custos');
+                console.log('Migração: coluna fornecedor adicionada em custos');
             }
 
         } catch (error) {
-            console.error('Erro na migraÃ§Ã£o:', error);
+            console.error('Erro na migração:', error);
         }
     }
 
@@ -293,7 +293,7 @@ class AppDatabase {
             )
         `);
 
-        // OrÃ§amentos
+        // Orçamentos
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS orcamentos (
                 id TEXT PRIMARY KEY,
@@ -313,7 +313,7 @@ class AppDatabase {
             )
         `);
 
-        // Itens do OrÃ§amento
+        // Itens do Orçamento
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS itens_orcamento (
                 id TEXT PRIMARY KEY,
@@ -389,7 +389,7 @@ class AppDatabase {
             )
         `);
 
-        // ConfiguraÃ§Ãµes
+        // Configurações
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS configuracoes (
                 chave TEXT PRIMARY KEY,
@@ -397,7 +397,7 @@ class AppDatabase {
             )
         `);
 
-        // Fila de sincronizaÃ§Ã£o offline (operaÃ§Ãµes que falharam sem internet)
+        // Fila de sincronização offline (operações que falharam sem internet)
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS pending_sync (
                 id TEXT PRIMARY KEY,
@@ -411,7 +411,7 @@ class AppDatabase {
     }
 
     insertDefaultConfig() {
-        // Se precisar de configuraÃ§Ãµes padrÃ£o no futuro, adicione aqui.
+        // Se precisar de configurações padrão no futuro, adicione aqui.
         // Por exemplo:
         // this.setConfig('taxa_lucro_minima', '20');
     }
@@ -520,12 +520,12 @@ class AppDatabase {
     }
 
     deleteCliente(id) {
-        // Verificar se tem vendas ou orÃ§amentos
+        // Verificar se tem vendas ou orçamentos
         const vendas = this.db.prepare('SELECT COUNT(*) as count FROM vendas WHERE cliente_id = ?').get(id).count;
         const orcamentos = this.db.prepare('SELECT COUNT(*) as count FROM orcamentos WHERE cliente_id = ?').get(id).count;
 
         if (vendas > 0 || orcamentos > 0) {
-            throw new Error('NÃ£o Ã© possÃ­vel excluir cliente com vendas ou orÃ§amentos vinculados.');
+            throw new Error('Não é possível excluir cliente com vendas ou orçamentos vinculados.');
         }
 
         this.db.prepare('DELETE FROM clientes WHERE id = ?').run(id);
@@ -535,7 +535,7 @@ class AppDatabase {
     }
 
     // ========================================
-    // ORÃ‡AMENTOS (Listagem Geral)
+    // ORÇAMENTOS (Listagem Geral)
     // ========================================
 
     getOrcamentos() {
@@ -635,7 +635,7 @@ class AppDatabase {
         `).all(clienteId);
     }
 
-    // Busca orÃ§amento pelo nÃºmero (para detectar conflitos de numeraÃ§Ã£o)
+    // Busca orçamento pelo número (para detectar conflitos de numeração)
     getOrcamentoByNumero(numero) {
         return this.db.prepare('SELECT * FROM orcamentos WHERE numero = ?').get(numero);
     }
@@ -802,10 +802,10 @@ class AppDatabase {
                 );
                 return numAttempt;
             } catch (e) {
-                // Conflito de nÃºmero Ãºnico (dois terminais criaram ao mesmo tempo)
+                // Conflito de número único (dois terminais criaram ao mesmo tempo)
                 if (e.message && e.message.includes('UNIQUE constraint failed: orcamentos.numero')) {
                     const novoNumero = this.getNextNumero();
-                    console.warn(`[DB] Conflito de nÃºmero ao criar orÃ§amento: ${numAttempt} -> ${novoNumero}`);
+                    console.warn(`[DB] Conflito de número ao criar orçamento: ${numAttempt} -> ${novoNumero}`);
                     return doInsert(novoNumero);
                 }
                 throw e;
@@ -820,14 +820,14 @@ class AppDatabase {
     }
 
     updateOrcamento(id, orcamento) {
-        // Buscar dados existentes primeiro para nÃ£o sobrescrever com undefined
+        // Buscar dados existentes primeiro para não sobrescrever com undefined
         const existing = this.db.prepare('SELECT * FROM orcamentos WHERE id = ?').get(id);
         if (!existing) {
-            console.error('[DB] updateOrcamento: orÃ§amento nÃ£o encontrado:', id);
+            console.error('[DB] updateOrcamento: orçamento não encontrado:', id);
             return null;
         }
 
-        // Mesclar: usar novo valor se fornecido, senÃ£o manter o existente
+        // Mesclar: usar novo valor se fornecido, senão manter o existente
         const merged = {
             cliente_id: orcamento.cliente_id !== undefined ? orcamento.cliente_id : existing.cliente_id,
             vendedor: orcamento.vendedor !== undefined ? orcamento.vendedor : existing.vendedor,
@@ -909,7 +909,7 @@ class AppDatabase {
     }
 
     // ========================================
-    // ITENS DO ORÃ‡AMENTO
+    // ITENS DO ORÇAMENTO
     // ========================================
 
     getItensOrcamento(orcamentoId) {
@@ -935,7 +935,7 @@ class AppDatabase {
                 for (const id of ids) deleteStmt.run(id);
             })(toDeleteIds);
 
-            // Sincronizar deleÃ§Ã£o com a nuvem
+            // Sincronizar deleção com a nuvem
             if (this.syncService) {
                 toDeleteIds.forEach(id => {
                     this.syncService.pushData('itens_orcamento', { id }, 'DELETE');
@@ -963,30 +963,24 @@ class AppDatabase {
             }
         })(newItensWithIds);
 
-        // 6. Sincronizar os itens (inserÃ§Ã£o/atualizaÃ§Ã£o) com a nuvem
-        if (this.syncService) {
-            newItensWithIds.forEach(item => {
-                const itemToSave = { ...item, orcamento_id: orcamentoId };
-                this.syncService.pushData('itens_orcamento', itemToSave, 'INSERT');
-            });
-        }
-
-        // 7. Atualizar valor total do orÃ§amento
+        // 6. Atualizar valor total do orçamento
         const total = newItensWithIds.reduce((sum, item) => sum + (item.valor_total || 0), 0);
         this.db.prepare('UPDATE orcamentos SET valor_total = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(total, orcamentoId);
 
-        // Notificar sync do orÃ§amento atualizado (valor total mudou)
+        // Notificar sync do orçamento atualizado (valor total mudou)
         if (this.syncService) {
             const orcAtualizado = this.getOrcamentoById(orcamentoId);
             this.syncService.pushData('orcamentos', orcAtualizado, 'UPDATE');
         }
 
+        // OBS: O push dos itens para o Supabase é feito pelo main.js via
+        // supabaseSync.pushBatchItens() — em batch, com await, mais confiável.
         return newItensWithIds;
     }
 
-    // Upsert de um Ãºnico item de orÃ§amento (usado pelo sync Realtime)
+    // Upsert de um único item de orçamento (usado pelo sync Realtime)
     upsertItemOrcamento(item) {
-        // INSERT OR REPLACE garante que se o item jÃ¡ existe (mesmo ID), ele Ã© sobrescrito
+        // INSERT OR REPLACE garante que se o item já existe (mesmo ID), ele é sobrescrito
         const stmt = this.db.prepare(`
             INSERT OR REPLACE INTO itens_orcamento (id, orcamento_id, quantidade, descricao, valor_unitario, valor_total, categoria)
             VALUES (@id, @orcamento_id, @quantidade, @descricao, @valor_unitario, @valor_total, @categoria)
@@ -1002,11 +996,11 @@ class AppDatabase {
             categoria: item.categoria || null
         });
 
-        console.log(`[DB] upsertItemOrcamento: item ${item.id} salvo para orÃ§amento ${item.orcamento_id}`);
+        console.log(`[DB] upsertItemOrcamento: item ${item.id} salvo para orçamento ${item.orcamento_id}`);
         return item;
     }
 
-    // Deletar um Ãºnico item de orÃ§amento (usado pelo sync Realtime)
+    // Deletar um único item de orçamento (usado pelo sync Realtime)
     deleteItemOrcamento(id) {
         this.db.prepare('DELETE FROM itens_orcamento WHERE id = ?').run(id);
         console.log(`[DB] deleteItemOrcamento: item ${id} removido`);
@@ -1153,7 +1147,7 @@ class AppDatabase {
     }
 
     // ========================================
-    // FILA DE SINCRONIZAÃ‡ÃƒO OFFLINE
+    // FILA DE SINCRONIZAÇÃO OFFLINE
     // ========================================
 
     addPendingSync(tableName, recordData, operation) {
@@ -1162,7 +1156,7 @@ class AppDatabase {
             INSERT INTO pending_sync (id, table_name, record_data, operation)
             VALUES (?, ?, ?, ?)
         `).run(id, tableName, JSON.stringify(recordData), operation);
-        console.log(`[DB] OperaÃ§Ã£o enfileirada para sync offline: ${operation} ${tableName} ${recordData.id || ''}`);
+        console.log(`[DB] Operação enfileirada para sync offline: ${operation} ${tableName} ${recordData.id || ''}`);
         return id;
     }
 
@@ -1184,7 +1178,7 @@ class AppDatabase {
     }
 
     // ========================================
-    // ESTATÃSTICAS
+    // ESTATÍSTICAS
     // ========================================
 
     getEstatisticas() {
@@ -1215,7 +1209,7 @@ class AppDatabase {
     }
 
     // ========================================
-    // CONFIGURAÃ‡Ã•ES
+    // CONFIGURAÇÕES
     // ========================================
 
     getConfig(chave) {
@@ -1252,14 +1246,14 @@ class AppDatabase {
 
     importBackup(filePath) {
         try {
-            // Fechar conexÃ£o atual
+            // Fechar conexão atual
             this.db.close();
 
             // Copiar arquivo de backup para o local do banco
             const dbPath = this.getDbPath();
             fs.copyFileSync(filePath, dbPath);
 
-            // Reabrir conexÃ£o
+            // Reabrir conexão
             this.db = new Database(dbPath);
             this.db.pragma('journal_mode = WAL');
 

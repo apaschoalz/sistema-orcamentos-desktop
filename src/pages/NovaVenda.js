@@ -1,9 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 function NovaVenda() {
     const navigate = useNavigate();
-    const { orcamentoId, id } = useParams(); // id para ediÃ§Ã£o, orcamentoId para nova venda de orÃ§amento
+    const { orcamentoId, id } = useParams(); // id para edição, orcamentoId para nova venda de orçamento
     const isEditing = !!id;
 
     const [loading, setLoading] = useState(false);
@@ -74,7 +74,7 @@ function NovaVenda() {
                             desconto: desconto,
                             subtotal: subtotal
                         });
-                        // Carregar orÃ§amentos deste cliente
+                        // Carregar orçamentos deste cliente
                         if (dadosVenda.cliente_id) {
                             loadOrcamentosDoCliente(dadosVenda.cliente_id);
                         }
@@ -89,7 +89,7 @@ function NovaVenda() {
                         // Check if sale exists for this budget
                         const existingSale = await window.electronAPI.getVendaByOrcamentoId(orcamentoId);
                         if (existingSale) {
-                            alert(`O OrÃ§amento ${existingSale.orcamento_numero} jÃ¡ possui uma venda registrada (Venda ${existingSale.numero}).\n\nRedirecionando para a venda existente.`);
+                            alert(`O Orçamento ${existingSale.orcamento_numero} já possui uma venda registrada (Venda ${existingSale.numero}).\n\nRedirecionando para a venda existente.`);
                             navigate(`/vendas/${existingSale.id}`);
                             return;
                         }
@@ -122,7 +122,7 @@ function NovaVenda() {
                 setOrcamentosCliente(orcs);
             }
         } catch (error) {
-            console.error('Erro ao carregar orÃ§amentos:', error);
+            console.error('Erro ao carregar orçamentos:', error);
         }
     };
 
@@ -134,7 +134,7 @@ function NovaVenda() {
         setVenda(prev => {
             const next = { ...prev, [name]: value };
 
-            // LÃ³gica de Desconto e Subtotal
+            // Lógica de Desconto e Subtotal
             if (name === 'desconto') {
                 const desc = parseFloat(value) || 0;
                 const sub = parseFloat(prev.subtotal) || 0;
@@ -144,9 +144,9 @@ function NovaVenda() {
                 const desc = parseFloat(prev.desconto) || 0;
                 next.valor = sub - desc;
             } else if (name === 'valor') {
-                // Se editar o valor final direto, ajusta o subtotal (mantÃ©m desconto fixo)
+                // Se editar o valor final direto, ajusta o subtotal (mantém desconto fixo)
                 // OU ajusta o desconto?
-                // Vamos ajustar o subtotal para manter coerÃªncia simples
+                // Vamos ajustar o subtotal para manter coerência simples
                 const val = parseFloat(value) || 0;
                 const desc = parseFloat(prev.desconto) || 0;
                 next.subtotal = val + desc;
@@ -175,7 +175,7 @@ function NovaVenda() {
         }
 
         if (!venda.orcamento_id) {
-            alert('VocÃª deve atribuir um orÃ§amento vinculado Ã  venda. Campo obrigatÃ³rio.');
+            alert('Você deve atribuir um orçamento vinculado à venda. Campo obrigatório.');
             return;
         }
 
@@ -185,7 +185,7 @@ function NovaVenda() {
                 const existingSale = await window.electronAPI.getVendaByOrcamentoId(venda.orcamento_id);
                 // If exists and it's NOT the current sale we are editing
                 if (existingSale && existingSale.id !== id) {
-                    alert(`O OrÃ§amento ${existingSale.orcamento_numero} jÃ¡ possui uma venda registrada (Venda ${existingSale.numero}).\n\nNÃ£o Ã© possÃ­vel criar duplicatas.`);
+                    alert(`O Orçamento ${existingSale.orcamento_numero} já possui uma venda registrada (Venda ${existingSale.numero}).\n\nNão é possível criar duplicatas.`);
 
                     const confirm = window.confirm('Deseja abrir a venda existente?');
                     if (confirm) {
@@ -223,14 +223,14 @@ function NovaVenda() {
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('Tem certeza que deseja excluir esta venda? Esta aÃ§Ã£o nÃ£o pode ser desfeita.')) {
+        if (!window.confirm('Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.')) {
             return;
         }
 
         try {
             if (window.electronAPI) {
                 await window.electronAPI.deleteVenda(id);
-                alert('Venda excluÃ­da com sucesso!');
+                alert('Venda excluída com sucesso!');
                 navigate('/vendas');
             }
         } catch (error) {
@@ -287,7 +287,7 @@ function NovaVenda() {
                             value={venda.cliente_id}
                             onChange={handleChange}
                             className="form-input form-select"
-                            disabled={!!orcamentoId} // Bloquear se veio de um orÃ§amento especÃ­fico? Talvez melhor nÃ£o, deixa flexÃ­vel.
+                            disabled={!!orcamentoId} // Bloquear se veio de um orçamento específico? Talvez melhor não, deixa flexível.
                         >
                             <option value="">Selecione um cliente...</option>
                             {clientes.map(c => (
@@ -296,7 +296,7 @@ function NovaVenda() {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label className="form-label">OrÃ§amento Vinculado *</label>
+                        <label className="form-label">Orçamento Vinculado *</label>
                         <select
                             name="orcamento_id"
                             value={venda.orcamento_id}
@@ -310,7 +310,7 @@ function NovaVenda() {
                                         // If exists and it's not the current sale we are editing
                                         if (existingSale && existingSale.id !== id) {
                                             const confirm = window.confirm(
-                                                `O OrÃ§amento ${existingSale.orcamento_numero} jÃ¡ possui uma venda registrada (Venda ${existingSale.numero}).\n\n` +
+                                                `O Orçamento ${existingSale.orcamento_numero} já possui uma venda registrada (Venda ${existingSale.numero}).\n\n` +
                                                 `Deseja abrir a venda existente?`
                                             );
 
@@ -330,7 +330,7 @@ function NovaVenda() {
                                     const next = {
                                         ...prev,
                                         orcamento_id: orcId,
-                                        valor: val, // Reseta valor ao do orÃ§amento
+                                        valor: val, // Reseta valor ao do orçamento
                                         subtotal: val,
                                         desconto: 0
                                     };
@@ -344,7 +344,7 @@ function NovaVenda() {
                             className="form-input form-select"
                             disabled={!venda.cliente_id}
                         >
-                            <option value="">Selecione o orÃ§amento do cliente...</option>
+                            <option value="">Selecione o orçamento do cliente...</option>
                             {orcamentosCliente.map(o => (
                                 <option key={o.id} value={o.id}>
                                     {o.numero} - {new Date(o.created_at).toLocaleDateString()} - R$ {o.valor_total?.toFixed(2)}
@@ -398,7 +398,7 @@ function NovaVenda() {
                         />
                     </div>
                     <div className="form-group">
-                        <label className="form-label">Valor LÃ­quido (Total)</label>
+                        <label className="form-label">Valor Líquido (Total)</label>
                         <input
                             type="number" min="0"
                             name="valor"
@@ -471,7 +471,7 @@ function NovaVenda() {
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label className="form-label">InstalaÃ§Ã£o</label>
+                        <label className="form-label">Instalação</label>
                         <input
                             type="number" min="0"
                             name="instalacao"
@@ -499,7 +499,7 @@ function NovaVenda() {
 
             <div className="card">
                 <div className="form-group">
-                    <label className="form-label">ObservaÃ§Ãµes</label>
+                    <label className="form-label">Observações</label>
                     <textarea
                         name="observacoes"
                         value={venda.observacoes}

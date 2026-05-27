@@ -307,6 +307,15 @@ ipcMain.handle('db:getNextNumero', async () => {
     return db.getNextNumero();
 });
 
+// Puxa itens de um orçamento direto do Supabase e faz upsert local
+// Chamado quando o terminal abre um orçamento para edição (garante itens atualizados)
+ipcMain.handle('db:syncItensFromRemote', async (event, orcamentoId) => {
+    if (supabaseSync && supabaseSync.checkConnection()) {
+        await supabaseSync.syncItensFromRemote(orcamentoId);
+    }
+    return db.getItensOrcamento(orcamentoId);
+});
+
 ipcMain.handle('db:getNextNumeroRemoto', async () => {
     if (supabaseSync && supabaseSync.checkConnection()) {
         return await supabaseSync.getNextNumeroRemoto();
@@ -320,7 +329,15 @@ ipcMain.handle('db:getItensOrcamento', async (event, orcamentoId) => {
 });
 
 ipcMain.handle('db:saveItensOrcamento', async (event, orcamentoId, itens) => {
-    return db.saveItensOrcamento(orcamentoId, itens);
+    // 1. Salvar localmente (síncrono)
+    const result = db.saveItensOrcamento(orcamentoId, itens);
+
+    // 2. Push batch confiável para o Supabase (aguarda resposta, com retry em caso de offline)
+    if (supabaseSync && supabaseSync.checkConnection()) {
+        await supabaseSync.pushBatchItens(orcamentoId, result);
+    }
+
+    return result;
 });
 
 // Estatísticas

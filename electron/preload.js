@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteOrcamento: (id) => ipcRenderer.invoke('db:deleteOrcamento', id),
     getNextNumero: () => ipcRenderer.invoke('db:getNextNumero'),
     getNextNumeroRemoto: () => ipcRenderer.invoke('db:getNextNumeroRemoto'),
+    syncItensFromRemote: (orcamentoId) => ipcRenderer.invoke('db:syncItensFromRemote', orcamentoId),
 
     // Itens do orçamento
     getItensOrcamento: (orcamentoId) => ipcRenderer.invoke('db:getItensOrcamento', orcamentoId),
