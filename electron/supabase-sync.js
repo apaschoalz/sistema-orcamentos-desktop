@@ -191,6 +191,14 @@ class SupabaseSync {
                 } else {
                     this.db.createCusto(record);
                 }
+
+            } else if (table === 'configuracoes') {
+                // Sincronizar configurações compartilhadas (nome empresa, CNPJ, telefone, etc.)
+                // EXCETO credenciais Supabase (supabase.url, supabase.anon_key) — são específicas por terminal
+                const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key']);
+                if (record.chave && !CHAVES_LOCAIS.has(record.chave)) {
+                    this.db.setConfig(record.chave, record.valor);
+                }
             }
         } catch (e) {
             console.error(`[Sync] Erro ao aplicar ${table}:`, e);
@@ -210,6 +218,7 @@ class SupabaseSync {
             else if (table === 'itens_orcamento') this.db.deleteItemOrcamento(id);
             else if (table === 'fornecedores') this.db.deleteFornecedor(id);
             else if (table === 'custos') this.db.deleteCusto(id);
+            // configuracoes: não deletamos entradas de config individuais via Realtime
         } catch (e) {
             console.error(`[Sync] Erro ao deletar ${table}:`, e);
         } finally {
@@ -380,18 +389,18 @@ class SupabaseSync {
     // ========================================
 
     // Envia TODOS os itens de um orçamento para o Supabase em uma única chamada batch.
+    // Faz upsert dos itens presentes E deleta do Supabase os que foram removidos.
     // Muito mais confiável do que N pushData individuais fire-and-forget.
     async pushBatchItens(orcamentoId, itens) {
         if (!this.checkConnection()) {
             // Sem conexão: enfileirar cada item individualmente
-            itens.forEach(item => {
+            (itens || []).forEach(item => {
                 this.db.addPendingSync('itens_orcamento', { ...item, orcamento_id: orcamentoId }, 'INSERT');
             });
             return;
         }
-        if (!itens || itens.length === 0) return;
 
-        const cleanItens = itens.map(item => ({
+        const cleanItens = (itens || []).map(item => ({
             id:             item.id,
             orcamento_id:   orcamentoId,
             quantidade:     item.quantidade || 1,
@@ -402,14 +411,33 @@ class SupabaseSync {
         }));
 
         try {
-            const { error } = await this.supabase
-                .from('itens_orcamento')
-                .upsert(cleanItens);
-            if (error) throw error;
-            console.log(`[Sync] ${cleanItens.length} itens do orçamento ${orcamentoId} enviados ao Supabase.`);
+            if (cleanItens.length > 0) {
+                // 1. Upsert dos itens que ficaram
+                const { error: upsertError } = await this.supabase
+                    .from('itens_orcamento')
+                    .upsert(cleanItens);
+                if (upsertError) throw upsertError;
+
+                // 2. Deletar do Supabase qualquer item deste orçamento que não está na lista atual
+                const currentIds = cleanItens.map(i => i.id);
+                const { error: deleteError } = await this.supabase
+                    .from('itens_orcamento')
+                    .delete()
+                    .eq('orcamento_id', orcamentoId)
+                    .not('id', 'in', `(${currentIds.join(',')})`);
+                if (deleteError) throw deleteError;
+            } else {
+                // Todos os itens foram removidos: deletar tudo deste orçamento no Supabase
+                const { error: deleteAllError } = await this.supabase
+                    .from('itens_orcamento')
+                    .delete()
+                    .eq('orcamento_id', orcamentoId);
+                if (deleteAllError) throw deleteAllError;
+            }
+            console.log(`[Sync] pushBatchItens: ${cleanItens.length} itens sincronizados para orçamento ${orcamentoId}.`);
         } catch (error) {
             if (this._isNetworkError(error)) {
-                // Offline: enfileirar
+                // Offline: enfileirar apenas os upserts (DELETEs serão cobertos pelo syncFromRemote na reconexão)
                 cleanItens.forEach(item => {
                     this.db.addPendingSync('itens_orcamento', item, 'INSERT');
                 });
@@ -568,14 +596,16 @@ class SupabaseSync {
                 { data: remoteItens },
                 { data: remoteVendas },
                 { data: remoteFornecedores },
-                { data: remoteCustos }
+                { data: remoteCustos },
+                { data: remoteConfig }
             ] = await Promise.all([
                 this.supabase.from('clientes').select('*'),
                 this.supabase.from('orcamentos').select('*'),
                 this.supabase.from('itens_orcamento').select('*'),
                 this.supabase.from('vendas').select('*'),
                 this.supabase.from('fornecedores').select('*'),
-                this.supabase.from('custos').select('*')
+                this.supabase.from('custos').select('*'),
+                this.supabase.from('configuracoes').select('*')
             ]);
 
             const filter = (rows) => (rows || []).filter(r => !protectedIds.has(r.id));
@@ -619,10 +649,18 @@ class SupabaseSync {
 
                 // Custos
                 const stmtCusto = this.db.db.prepare(`
-                    INSERT OR REPLACE INTO custos (id, descricao, categoria, valor, data_vencimento, data_pagamento, status, observacoes, created_at, updated_at, sync_id)
-                    VALUES (@id, @descricao, @categoria, @valor, @data_vencimento, @data_pagamento, @status, @observacoes, @created_at, @updated_at, @sync_id)
+                    INSERT OR REPLACE INTO custos (id, descricao, categoria, fornecedor, valor, data_vencimento, data_pagamento, status, observacoes, created_at, updated_at, sync_id)
+                    VALUES (@id, @descricao, @categoria, @fornecedor, @valor, @data_vencimento, @data_pagamento, @status, @observacoes, @created_at, @updated_at, @sync_id)
                 `);
-                this.db.db.transaction((rows) => { for (const r of rows) stmtCusto.run(r); })(filter(remoteCustos));
+                this.db.db.transaction((rows) => {
+                    for (const r of rows) stmtCusto.run({ ...r, fornecedor: r.fornecedor || null });
+                })(filter(remoteCustos));
+
+                // Configurações compartilhadas (exceto credenciais Supabase — são específicas por terminal)
+                const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key']);
+                const configParaSync = (remoteConfig || []).filter(r => !CHAVES_LOCAIS.has(r.chave));
+                const stmtCfg = this.db.db.prepare(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (@chave, @valor)`);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtCfg.run(r); })(configParaSync);
             } finally {
                 this.db.setSyncing(false);
             }
@@ -674,6 +712,17 @@ class SupabaseSync {
             // 6. Custos
             const custosLocais = this.db.getCustos();
             await this._backupTable('custos', custosLocais);
+
+            // 7. Configurações compartilhadas (exceto credenciais Supabase)
+            const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key']);
+            const todasConfigs = this.db.db.prepare('SELECT chave, valor FROM configuracoes').all();
+            const configsParaBackup = todasConfigs.filter(c => !CHAVES_LOCAIS.has(c.chave));
+            if (configsParaBackup.length > 0) {
+                const { error: cfgErr } = await this.supabase
+                    .from('configuracoes')
+                    .upsert(configsParaBackup, { onConflict: 'chave' });
+                if (cfgErr) throw cfgErr;
+            }
 
             console.log('[Backup] Concluído com sucesso!');
             return { success: true };
@@ -742,6 +791,9 @@ class SupabaseSync {
             const { data: remoteCustos, error: errCustos } = await this.supabase.from('custos').select('*');
             if (errCustos) throw errCustos;
 
+            const { data: remoteConfigRestore, error: errConfig } = await this.supabase.from('configuracoes').select('*');
+            if (errConfig) throw errConfig;
+
             // Limpeza (respeitando ordem de FKs)
             this.db.db.prepare('DELETE FROM itens_orcamento').run();
             this.db.db.prepare('DELETE FROM vendas').run();
@@ -749,6 +801,7 @@ class SupabaseSync {
             this.db.db.prepare('DELETE FROM clientes').run();
             this.db.db.prepare('DELETE FROM fornecedores').run();
             this.db.db.prepare('DELETE FROM custos').run();
+            // Configurações: NÃO limpar tudo — apenas sobrescrever as não-locais para preservar credenciais Supabase do terminal
 
             // 1. Clientes
             const stmtCli = this.db.db.prepare(`
@@ -802,13 +855,20 @@ class SupabaseSync {
 
             // 6. Custos
             const stmtCusto = this.db.db.prepare(`
-                INSERT INTO custos (id, descricao, categoria, valor, data_vencimento, data_pagamento, status, observacoes, created_at, updated_at, sync_id)
-                VALUES (@id, @descricao, @categoria, @valor, @data_vencimento, @data_pagamento, @status, @observacoes, @created_at, @updated_at, @sync_id)
+                INSERT INTO custos (id, descricao, categoria, fornecedor, valor, data_vencimento, data_pagamento, status, observacoes, created_at, updated_at, sync_id)
+                VALUES (@id, @descricao, @categoria, @fornecedor, @valor, @data_vencimento, @data_pagamento, @status, @observacoes, @created_at, @updated_at, @sync_id)
             `);
             const insertCustos = this.db.db.transaction((items) => {
-                for (const i of items) stmtCusto.run(i);
+                for (const i of items) stmtCusto.run({ ...i, fornecedor: i.fornecedor || null });
             });
             insertCustos(remoteCustos);
+
+            // 7. Configurações compartilhadas (exceto credenciais Supabase do terminal)
+            const CHAVES_LOCAIS_RESTORE = new Set(['supabase.url', 'supabase.anon_key']);
+            const stmtCfgRestore = this.db.db.prepare(`INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (@chave, @valor)`);
+            const configsRestore = (remoteConfigRestore || []).filter(c => !CHAVES_LOCAIS_RESTORE.has(c.chave));
+            const insertConfigs = this.db.db.transaction((rows) => { for (const r of rows) stmtCfgRestore.run(r); });
+            insertConfigs(configsRestore);
 
             // Limpar fila offline (dados foram restaurados da nuvem)
             this.db.clearPendingSync();

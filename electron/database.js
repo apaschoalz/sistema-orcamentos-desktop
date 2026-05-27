@@ -934,13 +934,8 @@ class AppDatabase {
             this.db.transaction((ids) => {
                 for (const id of ids) deleteStmt.run(id);
             })(toDeleteIds);
-
-            // Sincronizar deleção com a nuvem
-            if (this.syncService) {
-                toDeleteIds.forEach(id => {
-                    this.syncService.pushData('itens_orcamento', { id }, 'DELETE');
-                });
-            }
+            // OBS: a deleção no Supabase é feita pelo main.js via pushBatchItens (que garante que
+            // itens ausentes da lista atual sejam deletados remotamente — com await e confiável).
         }
 
         // 5. Inserir ou atualizar localmente os itens presentes
@@ -1219,6 +1214,7 @@ class AppDatabase {
 
     setConfig(chave, valor) {
         this.db.prepare('INSERT OR REPLACE INTO configuracoes (chave, valor) VALUES (?, ?)').run(chave, valor);
+        // Push para nuvem é feito pelo main.js (handler db:setConfig) com await, não aqui
         return { chave, valor };
     }
 

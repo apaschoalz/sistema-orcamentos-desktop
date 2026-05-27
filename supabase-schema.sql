@@ -220,9 +220,65 @@ BEGIN
     ALTER TABLE vendas ADD COLUMN valor_entrada DECIMAL DEFAULT 0;
   END IF;
   
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name = 'vendas' AND column_name = 'falta_pagar') THEN
     ALTER TABLE vendas ADD COLUMN falta_pagar DECIMAL DEFAULT 0;
   END IF;
 
+  -- Adicionar desconto em vendas
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'vendas' AND column_name = 'desconto') THEN
+    ALTER TABLE vendas ADD COLUMN desconto DECIMAL DEFAULT 0;
+  END IF;
+
+  -- Adicionar subtotal em vendas
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'vendas' AND column_name = 'subtotal') THEN
+    ALTER TABLE vendas ADD COLUMN subtotal DECIMAL DEFAULT 0;
+  END IF;
+
+  -- Adicionar fornecedor em custos
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'custos' AND column_name = 'fornecedor') THEN
+    ALTER TABLE custos ADD COLUMN fornecedor TEXT;
+  END IF;
+
+  -- Adicionar sync_id em fornecedores
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'fornecedores' AND column_name = 'sync_id') THEN
+    ALTER TABLE fornecedores ADD COLUMN sync_id TEXT;
+  END IF;
+
+  -- Adicionar sync_id em custos
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name = 'custos' AND column_name = 'sync_id') THEN
+    ALTER TABLE custos ADD COLUMN sync_id TEXT;
+  END IF;
+
 END $$;
+
+-- ============================================================
+-- TABELA DE CONFIGURAÇÕES (v1.3.0)
+-- Sincroniza nome da empresa, CNPJ, telefone, etc. entre terminais
+-- ============================================================
+CREATE TABLE IF NOT EXISTS configuracoes (
+  chave TEXT PRIMARY KEY,
+  valor TEXT
+);
+
+ALTER TABLE configuracoes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir tudo configuracoes" ON configuracoes;
+CREATE POLICY "Permitir tudo configuracoes" ON configuracoes FOR ALL USING (true) WITH CHECK (true);
+
+-- Habilitar Realtime para configuracoes
+ALTER TABLE configuracoes REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE configuracoes;
+
+-- Garantir que todas as tabelas principais estão no Realtime
+-- (executar apenas se não estiverem — o ADD TABLE é idempotente no Supabase)
+ALTER TABLE clientes REPLICA IDENTITY FULL;
+ALTER TABLE orcamentos REPLICA IDENTITY FULL;
+ALTER TABLE itens_orcamento REPLICA IDENTITY FULL;
+ALTER TABLE vendas REPLICA IDENTITY FULL;
+ALTER TABLE fornecedores REPLICA IDENTITY FULL;
+ALTER TABLE custos REPLICA IDENTITY FULL;

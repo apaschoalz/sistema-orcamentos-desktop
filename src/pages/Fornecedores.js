@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSyncVersion } from '../SyncContext';
 
 const Fornecedores = () => {
+    const syncVersion = useSyncVersion();
     const [fornecedores, setFornecedores] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState({
@@ -16,7 +18,7 @@ const Fornecedores = () => {
 
     useEffect(() => {
         loadFornecedores();
-    }, []);
+    }, [syncVersion]);
 
     const loadFornecedores = async () => {
         try {

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSyncVersion } from '../SyncContext';
 
 function NovaVenda() {
     const navigate = useNavigate();
     const { orcamentoId, id } = useParams(); // id para edição, orcamentoId para nova venda de orçamento
     const isEditing = !!id;
+    const syncVersion = useSyncVersion();
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -32,7 +34,7 @@ function NovaVenda() {
 
     useEffect(() => {
         loadInitialData();
-    }, [id, orcamentoId]); // Recarregar se IDs mudarem
+    }, [id, orcamentoId, syncVersion]); // Recarregar se IDs mudarem ou dados chegarem da nuvem
 
     useEffect(() => {
         if (venda.cliente_id) {

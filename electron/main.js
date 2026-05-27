@@ -436,7 +436,19 @@ ipcMain.handle('db:getConfig', async (event, chave) => {
 });
 
 ipcMain.handle('db:setConfig', async (event, chave, valor) => {
-    return db.setConfig(chave, valor);
+    const result = db.setConfig(chave, valor);
+    // Sincronizar configurações compartilhadas com o Supabase (exceto credenciais)
+    const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key']);
+    if (supabaseSync && supabaseSync.checkConnection() && !CHAVES_LOCAIS.has(chave)) {
+        try {
+            await supabaseSync.supabase
+                .from('configuracoes')
+                .upsert({ chave, valor }, { onConflict: 'chave' });
+        } catch (e) {
+            console.warn('[setConfig] Erro ao sincronizar config com Supabase:', e.message);
+        }
+    }
+    return result;
 });
 
 ipcMain.handle('db:getAllConfig', async () => {

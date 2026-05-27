@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+import { useSyncVersion } from '../SyncContext';
 
 function NovoOrcamento() {
     const { id } = useParams();
     const navigate = useNavigate();
     const isEditing = !!id;
+    const syncVersion = useSyncVersion();
 
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -58,30 +60,19 @@ function NovoOrcamento() {
         }
     }, [id]);
 
-    // Ouvir eventos de sync em tempo real: atualiza itens se outro terminal salvar
+    // Quando chega evento de sync do outro terminal, recarregar itens e metadados do orçamento
     useEffect(() => {
-        if (!isEditing || !id || !window.electronAPI) return;
-
-        const reloadItemsFromDB = async () => {
-            const itensOrc = await window.electronAPI.getItensOrcamento(id);
-            if (itensOrc && itensOrc.length > 0) {
-                setItens(itensOrc);
+        if (!isEditing || !id) return;
+        const reloadFromDB = async () => {
+            try {
+                const itensOrc = await window.electronAPI.getItensOrcamento(id);
+                if (itensOrc && itensOrc.length > 0) setItens(itensOrc);
+            } catch (e) {
+                console.warn('[NovoOrcamento] Erro ao recarregar itens via syncVersion:', e);
             }
         };
-
-        const handleSyncChange = (event, info) => {
-            if (!info) return;
-            const isItemDoOrcamento = info.table === 'itens_orcamento' &&
-                (!info.orcamento_id || info.orcamento_id === id);
-            const isEsteOrcamento = info.table === 'orcamentos' && info.id === id;
-            if (isItemDoOrcamento || isEsteOrcamento) {
-                reloadItemsFromDB();
-            }
-        };
-
-        window.electronAPI.onSyncDataChanged(handleSyncChange);
-        return () => window.electronAPI.removeSyncDataChanged(handleSyncChange);
-    }, [id, isEditing]);
+        reloadFromDB();
+    }, [syncVersion, id, isEditing]);
 
     const loadConfig = async () => {
         try {
