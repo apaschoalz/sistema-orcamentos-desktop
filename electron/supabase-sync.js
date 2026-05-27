@@ -190,7 +190,7 @@ class SupabaseSync {
             console.error(`[Sync] Erro ao aplicar ${table}:`, e);
         } finally {
             this.db.setSyncing(false);
-            this.emitSyncEvent({ type: 'upsert', table, id: record.id });
+            this.emitSyncEvent({ type: 'upsert', table, id: record.id, orcamento_id: record.orcamento_id });
         }
     }
 
@@ -342,6 +342,24 @@ class SupabaseSync {
     // ========================================
     // HELPERS
     // ========================================
+
+    // Reserva um número único no Supabase via função atômica (UPDATE...RETURNING)
+    // Requer que a função next_orcamento_numero() exista no Supabase (ver docs/supabase-sequencia.sql)
+    async reservarNumeroOrcamento() {
+        if (!this.checkConnection()) return null;
+        try {
+            const { data, error } = await this.supabase.rpc('next_orcamento_numero');
+            if (error) {
+                console.warn('[Sync] RPC next_orcamento_numero indisponível, usando fallback local:', error.message);
+                return null;
+            }
+            console.log('[Sync] Número reservado centralmente:', data);
+            return data; // ex: 'ORC-0139'
+        } catch (e) {
+            console.warn('[Sync] Erro ao reservar número no Supabase:', e.message);
+            return null;
+        }
+    }
 
     // Obtém o próximo número de orçamento consultando tanto local quanto remoto
     async getNextNumeroRemoto() {
@@ -524,7 +542,6 @@ class SupabaseSync {
             // Limpeza (respeitando ordem de FKs)
             this.db.db.prepare('DELETE FROM itens_orcamento').run();
             this.db.db.prepare('DELETE FROM vendas').run();
-            this.db.db.prepare('DELETE FROM itens_orcamento').run();
             this.db.db.prepare('DELETE FROM orcamentos').run();
             this.db.db.prepare('DELETE FROM clientes').run();
             this.db.db.prepare('DELETE FROM fornecedores').run();
@@ -562,8 +579,8 @@ class SupabaseSync {
 
             // 4. Vendas
             const stmtVenda = this.db.db.prepare(`
-                INSERT INTO vendas (id, numero, cliente_id, orcamento_id, data_venda, valor, custo, costureira, instalacao, outros_custos, lucro, observacoes, created_at, updated_at)
-                VALUES (@id, @numero, @cliente_id, @orcamento_id, @data_venda, @valor, @custo, @costureira, @instalacao, @outros_custos, @lucro, @observacoes, @created_at, @updated_at)
+                INSERT INTO vendas (id, numero, cliente_id, orcamento_id, data_venda, valor, custo, costureira, instalacao, outros_custos, lucro, observacoes, tipo_fluxo, etapa_atual, nome_costureira, nome_instalador, data_entrega_prevista, valor_entrada, falta_pagar, desconto, created_at, updated_at)
+                VALUES (@id, @numero, @cliente_id, @orcamento_id, @data_venda, @valor, @custo, @costureira, @instalacao, @outros_custos, @lucro, @observacoes, @tipo_fluxo, @etapa_atual, @nome_costureira, @nome_instalador, @data_entrega_prevista, @valor_entrada, @falta_pagar, @desconto, @created_at, @updated_at)
             `);
             const insertVendas = this.db.db.transaction((items) => {
                 for (const i of items) stmtVenda.run(i);

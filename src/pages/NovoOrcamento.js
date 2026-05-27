@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -34,7 +34,7 @@ function NovoOrcamento() {
     const [showConflictModal, setShowConflictModal] = useState(false);
     const [existingCliente, setExistingCliente] = useState(null);
 
-    // Dados do orçamento
+    // Dados do orÃ§amento
     const [orcamento, setOrcamento] = useState({
         vendedor: '',
         status: 'Pendente',
@@ -44,7 +44,7 @@ function NovoOrcamento() {
         garantia: ''
     });
 
-    // Itens do orçamento
+    // Itens do orÃ§amento
     const [itens, setItens] = useState([
         { id: uuidv4(), quantidade: 1, descricao: '', valor_unitario: 0, valor_total: 0, categoria: '' }
     ]);
@@ -57,6 +57,31 @@ function NovoOrcamento() {
             loadNextNumero();
         }
     }, [id]);
+
+    // Ouvir eventos de sync em tempo real: atualiza itens se outro terminal salvar
+    useEffect(() => {
+        if (!isEditing || !id || !window.electronAPI) return;
+
+        const reloadItemsFromDB = async () => {
+            const itensOrc = await window.electronAPI.getItensOrcamento(id);
+            if (itensOrc && itensOrc.length > 0) {
+                setItens(itensOrc);
+            }
+        };
+
+        const handleSyncChange = (event, info) => {
+            if (!info) return;
+            const isItemDoOrcamento = info.table === 'itens_orcamento' &&
+                (!info.orcamento_id || info.orcamento_id === id);
+            const isEsteOrcamento = info.table === 'orcamentos' && info.id === id;
+            if (isItemDoOrcamento || isEsteOrcamento) {
+                reloadItemsFromDB();
+            }
+        };
+
+        window.electronAPI.onSyncDataChanged(handleSyncChange);
+        return () => window.electronAPI.removeSyncDataChanged(handleSyncChange);
+    }, [id, isEditing]);
 
     const loadConfig = async () => {
         try {
@@ -74,18 +99,25 @@ function NovoOrcamento() {
                 }
             }
         } catch (error) {
-            console.error('Erro ao carregar configurações:', error);
+            console.error('Erro ao carregar configuraÃ§Ãµes:', error);
         }
     };
 
     const loadNextNumero = async () => {
         try {
             if (window.electronAPI) {
-                const num = await window.electronAPI.getNextNumero();
+                // Usa o contador remoto (Supabase) quando disponível para evitar conflitos entre terminais
+                const num = await window.electronAPI.getNextNumeroRemoto();
                 setNumero(num);
             }
         } catch (error) {
-            console.error('Erro ao obter número:', error);
+            console.error('Erro ao obter nÃºmero:', error);
+            try {
+                const num = await window.electronAPI.getNextNumero();
+                setNumero(num);
+            } catch (e) {
+                console.error('Erro ao obter nÃºmero local:', e);
+            }
         }
     };
 
@@ -127,13 +159,13 @@ function NovoOrcamento() {
                 }
             }
         } catch (error) {
-            console.error('Erro ao carregar orçamento:', error);
+            console.error('Erro ao carregar orÃ§amento:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    // Funções de validação e formatação
+    // FunÃ§Ãµes de validaÃ§Ã£o e formataÃ§Ã£o
     const validarCPF = (cpf) => {
         cpf = cpf.replace(/\D/g, '');
         if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
@@ -251,7 +283,7 @@ function NovoOrcamento() {
                             cidade: clienteEncontrado.cidade || '',
                             condominio: clienteEncontrado.condominio || ''
                         }));
-                        // Feedback visual opcional? O preenchimento já é um feedback.
+                        // Feedback visual opcional? O preenchimento jÃ¡ Ã© um feedback.
                         console.log('Cliente encontrado e preenchido:', clienteEncontrado.nome);
                     }
                 }
@@ -339,16 +371,16 @@ function NovoOrcamento() {
             return;
         }
 
-        // Validação de CPF/CNPJ (Apenas se preenchido)
+        // ValidaÃ§Ã£o de CPF/CNPJ (Apenas se preenchido)
         const cpfCnpjLimpo = cliente.cpf_cnpj.replace(/\D/g, '');
 
         if (cliente.cpf_cnpj && cpfCnpjLimpo.length > 0) {
             if (cpfCnpjLimpo.length !== 11 && cpfCnpjLimpo.length !== 14) {
-                alert('CPF/CNPJ incompleto. Deixe vazio se não quiser informar.');
+                alert('CPF/CNPJ incompleto. Deixe vazio se nÃ£o quiser informar.');
                 return;
             }
             if (!cpfCnpjValido) {
-                alert('CPF/CNPJ inválido.');
+                alert('CPF/CNPJ invÃ¡lido.');
                 return;
             }
         }
@@ -357,7 +389,7 @@ function NovoOrcamento() {
         if (window.electronAPI && cpfCnpjLimpo.length > 0) {
             try {
                 const existing = await window.electronAPI.getClienteByCpfCnpj(cliente.cpf_cnpj);
-                // Se existe cliente com este CPF e não é o cliente que estamos editando (id diferente)
+                // Se existe cliente com este CPF e nÃ£o Ã© o cliente que estamos editando (id diferente)
                 if (existing && existing.id !== cliente.id) {
                     setExistingCliente(existing);
                     setShowConflictModal(true);
@@ -368,7 +400,7 @@ function NovoOrcamento() {
             }
         }
 
-        // Se não houver conflito, salva direto
+        // Se nÃ£o houver conflito, salva direto
         saveFinal(cliente.id);
     };
 
@@ -376,19 +408,19 @@ function NovoOrcamento() {
         setShowConflictModal(false);
         if (action === 'add') {
             // Vincular ao cliente existente, mas atualizando dados
-            // O ID será o do cliente existente
+            // O ID serÃ¡ o do cliente existente
             await saveFinal(existingCliente.id);
         } else if (action === 'replace') {
-            // "Substituir" -> Deletar orçamentos anteriores (opcional, mas solicitado pelo user) 
+            // "Substituir" -> Deletar orÃ§amentos anteriores (opcional, mas solicitado pelo user) 
             // ou apenas sobrescrever dados.
-            // Para segurança, vamos atualizar os dados do cliente e criar o novo orçamento.
-            // A parte "deletar o antigo" é delicada. Vamos assumir que o usuário
-            // quer atualizar o cadastro do cliente e adicionar este orçamento como o ATUAL.
-            // Se o usuário quiser deletar os antigos, ele pode fazer na lista.
+            // Para seguranÃ§a, vamos atualizar os dados do cliente e criar o novo orÃ§amento.
+            // A parte "deletar o antigo" Ã© delicada. Vamos assumir que o usuÃ¡rio
+            // quer atualizar o cadastro do cliente e adicionar este orÃ§amento como o ATUAL.
+            // Se o usuÃ¡rio quiser deletar os antigos, ele pode fazer na lista.
             // Mas seguindo o pedido estrito: "deletar o antigo e salvar o novo".
-            // Implementação: Busca último orçamento desse cliente e deleta?
-            // Vamos apenas atualizar o cliente e criar o novo. Se houver colisão de orçamento pendente,
-            // o sistema já cria um novo ID de orçamento, então não sobrescreve.
+            // ImplementaÃ§Ã£o: Busca Ãºltimo orÃ§amento desse cliente e deleta?
+            // Vamos apenas atualizar o cliente e criar o novo. Se houver colisÃ£o de orÃ§amento pendente,
+            // o sistema jÃ¡ cria um novo ID de orÃ§amento, entÃ£o nÃ£o sobrescreve.
             await saveFinal(existingCliente.id);
         }
     };
@@ -425,12 +457,12 @@ function NovoOrcamento() {
 
                 await window.electronAPI.saveItensOrcamento(orcamentoId, itens);
 
-                alert('Orçamento salvo com sucesso!');
+                alert('OrÃ§amento salvo com sucesso!');
                 navigate('/orcamentos');
             }
         } catch (error) {
             console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar orçamento: ' + error.message);
+            alert('Erro ao salvar orÃ§amento: ' + error.message);
         } finally {
             setSaving(false);
         }
@@ -455,17 +487,17 @@ function NovoOrcamento() {
                 }}>
                     <div className="card" style={{ maxWidth: '500px', margin: '20px' }}>
                         <div className="card-header">
-                            <h2 className="card-title">Cliente Já Cadastrado</h2>
+                            <h2 className="card-title">Cliente JÃ¡ Cadastrado</h2>
                         </div>
                         <div style={{ padding: '20px' }}>
-                            <p>O CPF/CNPJ <strong>{cliente.cpf_cnpj}</strong> já pertence ao cliente:</p>
+                            <p>O CPF/CNPJ <strong>{cliente.cpf_cnpj}</strong> jÃ¡ pertence ao cliente:</p>
                             <p style={{ fontSize: '1.2em', fontWeight: 'bold', margin: '10px 0', color: 'var(--primary)' }}>
                                 {existingCliente.nome}
                             </p>
                             <p>O que deseja fazer?</p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
                                 <button className="btn btn-primary" onClick={() => resolveConflict('add')}>
-                                    <i className="fas fa-plus-circle"></i> Adicionar Orçamento (Atualizar Cliente)
+                                    <i className="fas fa-plus-circle"></i> Adicionar OrÃ§amento (Atualizar Cliente)
                                 </button>
                                 <button className="btn btn-secondary" onClick={() => setShowConflictModal(false)}>
                                     Cancelar
@@ -478,7 +510,7 @@ function NovoOrcamento() {
 
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">{isEditing ? 'Editar Orçamento' : 'Novo Orçamento'}</h1>
+                    <h1 className="page-title">{isEditing ? 'Editar OrÃ§amento' : 'Novo OrÃ§amento'}</h1>
                     <p className="page-subtitle">
                         {numero && <span style={{ color: 'var(--primary-light)', fontWeight: '600' }}>{numero}</span>}
                     </p>
@@ -519,7 +551,7 @@ function NovoOrcamento() {
                     <div className="form-group">
                         <label className="form-label">
                             CPF/CNPJ
-                            {!cpfCnpjValido && <span style={{ marginLeft: '8px', color: '#ff4444' }}><i className="fas fa-exclamation-circle"></i> Inválido</span>}
+                            {!cpfCnpjValido && <span style={{ marginLeft: '8px', color: '#ff4444' }}><i className="fas fa-exclamation-circle"></i> InvÃ¡lido</span>}
                         </label>
                         <input
                             type="text"
@@ -577,7 +609,7 @@ function NovoOrcamento() {
                         />
                     </div>
                     <div className="form-group" style={{ flex: 2 }}>
-                        <label className="form-label">Endereço</label>
+                        <label className="form-label">EndereÃ§o</label>
                         <input
                             type="text"
                             name="endereco"
@@ -589,14 +621,14 @@ function NovoOrcamento() {
                         />
                     </div>
                     <div className="form-group" style={{ flex: '0 0 100px' }}>
-                        <label className="form-label">Número</label>
+                        <label className="form-label">NÃºmero</label>
                         <input
                             type="text"
                             name="numero"
                             value={cliente.numero}
                             onChange={handleClienteChange}
                             className="form-input"
-                            placeholder="Nº"
+                            placeholder="NÂº"
                         />
                     </div>
                 </div>
@@ -641,25 +673,25 @@ function NovoOrcamento() {
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label className="form-label">Condomínio</label>
+                        <label className="form-label">CondomÃ­nio</label>
                         <input
                             type="text"
                             name="condominio"
                             value={cliente.condominio}
                             onChange={handleClienteChange}
                             className="form-input"
-                            placeholder="Nome do condomínio"
+                            placeholder="Nome do condomÃ­nio"
                         />
                     </div>
                 </div>
             </div>
 
-            {/* Itens do Orçamento */}
+            {/* Itens do OrÃ§amento */}
             <div className="card">
                 <div className="card-header">
                     <h2 className="card-title">
                         <i className="fas fa-list" style={{ marginRight: '10px', color: 'var(--primary)' }}></i>
-                        Itens do Orçamento
+                        Itens do OrÃ§amento
                     </h2>
                     <button className="btn btn-secondary btn-sm" onClick={addItem}>
                         <i className="fas fa-plus"></i>
@@ -670,9 +702,9 @@ function NovoOrcamento() {
                 <div style={{ marginBottom: '12px', padding: '12px', background: 'var(--bg-card-hover)', borderRadius: '10px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 150px 120px 120px 50px', gap: '12px', fontWeight: '600', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         <span>QTDE</span>
-                        <span>DESCRIÇÃO</span>
+                        <span>DESCRIÃ‡ÃƒO</span>
                         <span>CATEGORIA</span>
-                        <span>VL. UNITÁRIO</span>
+                        <span>VL. UNITÃRIO</span>
                         <span>VL. TOTAL</span>
                         <span></span>
                     </div>
@@ -681,7 +713,7 @@ function NovoOrcamento() {
                 {itens.map((item, index) => (
                     <div key={item.id} className="item-row" style={{ display: 'grid', gridTemplateColumns: '80px 1fr 150px 120px 120px 50px', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
                         <input
-                            type="number"
+                            type="number" min="0"
                             value={item.quantidade}
                             onChange={(e) => handleItemChange(index, 'quantidade', e.target.value)}
                             className="form-input"
@@ -692,7 +724,7 @@ function NovoOrcamento() {
                             value={item.descricao}
                             onChange={(e) => handleItemChange(index, 'descricao', e.target.value)}
                             className="form-input"
-                            placeholder="Descrição do produto/serviço"
+                            placeholder="DescriÃ§Ã£o do produto/serviÃ§o"
                         />
                         <select
                             value={item.categoria || ''}
@@ -708,7 +740,7 @@ function NovoOrcamento() {
                             <option value="Outros">Outros</option>
                         </select>
                         <input
-                            type="number"
+                            type="number" min="0"
                             value={item.valor_unitario}
                             onChange={(e) => handleItemChange(index, 'valor_unitario', e.target.value)}
                             className="form-input"
@@ -730,12 +762,12 @@ function NovoOrcamento() {
                 </div>
             </div>
 
-            {/* Observações */}
+            {/* ObservaÃ§Ãµes */}
             <div className="card">
                 <div className="card-header">
                     <h2 className="card-title">
                         <i className="fas fa-info-circle" style={{ marginRight: '10px', color: 'var(--primary)' }}></i>
-                        Informações Adicionais
+                        InformaÃ§Ãµes Adicionais
                     </h2>
                 </div>
 
@@ -779,18 +811,18 @@ function NovoOrcamento() {
                         >
                             <option value="">Selecione...</option>
                             <option value="PIX">PIX</option>
-                            <option value="Cartão de Crédito 1x sem juros">Cartão de Crédito 1x sem juros</option>
-                            <option value="Cartão de Crédito 2x sem juros">Cartão de Crédito 2x sem juros</option>
-                            <option value="Cartão de Crédito 3x sem juros">Cartão de Crédito 3x sem juros</option>
-                            <option value="Cartão de Crédito 4x sem juros">Cartão de Crédito 4x sem juros</option>
-                            <option value="Cartão de Crédito 5x sem juros">Cartão de Crédito 5x sem juros</option>
-                            <option value="Cartão de Crédito 6x sem juros">Cartão de Crédito 6x sem juros</option>
-                            <option value="Cartão de Crédito 7x sem juros">Cartão de Crédito 7x sem juros</option>
-                            <option value="Cartão de Crédito 8x sem juros">Cartão de Crédito 8x sem juros</option>
-                            <option value="Cartão de Crédito 9x sem juros">Cartão de Crédito 9x sem juros</option>
-                            <option value="Cartão de Crédito 10x sem juros">Cartão de Crédito 10x sem juros</option>
-                            <option value="Cartão de Crédito 11x sem juros">Cartão de Crédito 11x sem juros</option>
-                            <option value="Cartão de Crédito 12x sem juros">Cartão de Crédito 12x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 1x sem juros">CartÃ£o de CrÃ©dito 1x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 2x sem juros">CartÃ£o de CrÃ©dito 2x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 3x sem juros">CartÃ£o de CrÃ©dito 3x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 4x sem juros">CartÃ£o de CrÃ©dito 4x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 5x sem juros">CartÃ£o de CrÃ©dito 5x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 6x sem juros">CartÃ£o de CrÃ©dito 6x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 7x sem juros">CartÃ£o de CrÃ©dito 7x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 8x sem juros">CartÃ£o de CrÃ©dito 8x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 9x sem juros">CartÃ£o de CrÃ©dito 9x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 10x sem juros">CartÃ£o de CrÃ©dito 10x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 11x sem juros">CartÃ£o de CrÃ©dito 11x sem juros</option>
+                            <option value="CartÃ£o de CrÃ©dito 12x sem juros">CartÃ£o de CrÃ©dito 12x sem juros</option>
                         </select>
                     </div>
                     <div className="form-group">
@@ -814,18 +846,18 @@ function NovoOrcamento() {
                         value={orcamento.garantia}
                         onChange={handleOrcamentoChange}
                         className="form-input"
-                        placeholder="Informações sobre garantia"
+                        placeholder="InformaÃ§Ãµes sobre garantia"
                     />
                 </div>
 
                 <div className="form-group">
-                    <label className="form-label">Observações</label>
+                    <label className="form-label">ObservaÃ§Ãµes</label>
                     <textarea
                         name="observacoes"
                         value={orcamento.observacoes}
                         onChange={handleOrcamentoChange}
                         className="form-input form-textarea"
-                        placeholder="Observações adicionais..."
+                        placeholder="ObservaÃ§Ãµes adicionais..."
                     />
                 </div>
             </div>
@@ -834,3 +866,4 @@ function NovoOrcamento() {
 }
 
 export default NovoOrcamento;
+

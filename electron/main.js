@@ -6,6 +6,14 @@ const Database = require('./database');
 const SupabaseSync = require('./supabase-sync');
 const PDFGenerator = require('./pdf-generator');
 
+// ============================================================
+// MODO DE TESTE E2E: Usa pasta temporária isolada
+// Garante que os testes automatizados não toquem no banco real
+// ============================================================
+if (process.env.ELECTRON_USER_DATA) {
+    app.setPath('userData', process.env.ELECTRON_USER_DATA);
+}
+
 let mainWindow;
 let db;
 let supabaseSync;
@@ -238,6 +246,16 @@ ipcMain.handle('db:searchOrcamentos', async (event, termo) => {
 
 ipcMain.handle('db:createOrcamento', async (event, orcamento) => {
     console.log('[Main] createOrcamento:', JSON.stringify(orcamento));
+
+    // Reservar número centralmente no Supabase se disponível (solução definitiva para evitar gaps)
+    if (!orcamento.numero && supabaseSync && supabaseSync.checkConnection()) {
+        const numeroReservado = await supabaseSync.reservarNumeroOrcamento();
+        if (numeroReservado) {
+            orcamento = { ...orcamento, numero: numeroReservado };
+            console.log('[Main] Número reservado no Supabase:', numeroReservado);
+        }
+    }
+
     const result = db.createOrcamento(orcamento);
     console.log('[Main] createOrcamento result:', JSON.stringify(result));
     return result;
@@ -255,6 +273,13 @@ ipcMain.handle('db:deleteOrcamento', async (event, id) => {
 });
 
 ipcMain.handle('db:getNextNumero', async () => {
+    return db.getNextNumero();
+});
+
+ipcMain.handle('db:getNextNumeroRemoto', async () => {
+    if (supabaseSync && supabaseSync.checkConnection()) {
+        return await supabaseSync.getNextNumeroRemoto();
+    }
     return db.getNextNumero();
 });
 
