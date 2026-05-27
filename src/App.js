@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import NovoOrcamento from './pages/NovoOrcamento';
@@ -20,6 +20,13 @@ import Balanco from './pages/Balanco';
 
 function App() {
     const location = useLocation();
+    const [appVersion, setAppVersion] = useState('');
+
+    useEffect(() => {
+        if (window.electronAPI?.getAppVersion) {
+            window.electronAPI.getAppVersion().then(v => setAppVersion(v));
+        }
+    }, []);
 
     return (
         <div className="app-container">
@@ -95,7 +102,7 @@ function App() {
 
                 <div className="sidebar-footer">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        v1.1.0 | © 2024 Entre Tramas
+                        {appVersion ? `v${appVersion}` : 'v1.1.8'} | © 2025 Entre Tramas
                     </div>
                 </div>
             </aside>

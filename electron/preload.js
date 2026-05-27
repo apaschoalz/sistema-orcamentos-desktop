@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateCusto: (id, custo) => ipcRenderer.invoke('db:updateCusto', id, custo),
     deleteCusto: (id) => ipcRenderer.invoke('db:deleteCusto', id),
 
+    // App info
+    getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+
     // Paths
     getPDFPath: () => ipcRenderer.invoke('app:getPDFPath'),
     getAppPath: () => ipcRenderer.invoke('app:getAppPath'),

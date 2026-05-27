@@ -39,8 +39,11 @@ class SupabaseSync {
             // Iniciar Realtime
             this.initializeRealtime();
 
-            // Tentar processar fila offline ao iniciar (com delay para estabilizar conexão)
-            setTimeout(() => this.processPendingSync(), 5000);
+            // Processar fila offline e puxar histórico do Supabase ao iniciar
+            setTimeout(async () => {
+                await this.processPendingSync();
+                await this.syncFromRemote();
+            }, 5000);
 
             // Verificar fila offline periodicamente (a cada 2 minutos)
             setInterval(() => this.processPendingSync(), 120000);
@@ -75,10 +78,13 @@ class SupabaseSync {
             .subscribe((status) => {
                 console.log('Supabase Realtime status:', status);
 
-                // Quando (re)conectar: processar fila offline
+                // Quando (re)conectar: processar fila offline e sincronizar histórico
                 if (status === 'SUBSCRIBED') {
-                    console.log('[Sync] Realtime conectado. Verificando fila offline...');
-                    setTimeout(() => this.processPendingSync(), 2000);
+                    console.log('[Sync] Realtime conectado. Verificando fila offline e histórico...');
+                    setTimeout(async () => {
+                        await this.processPendingSync();
+                        await this.syncFromRemote();
+                    }, 2000);
                 }
             });
     }
@@ -458,6 +464,98 @@ class SupabaseSync {
 
     checkConnection() {
         return this.isConfigured && this.supabase !== null;
+    }
+
+    // ========================================
+    // SYNC FROM REMOTE (NUVEM -> LOCAL, não-destrutivo)
+    // Preenche lacunas históricas sem sobrescrever mudanças locais pendentes
+    // ========================================
+
+    async syncFromRemote() {
+        if (!this.checkConnection()) return;
+        if (this._syncingFromRemote) return;
+        this._syncingFromRemote = true;
+
+        console.log('[SyncFromRemote] Iniciando sync histórico da nuvem...');
+
+        try {
+            // IDs com mudanças locais pendentes — não sobrescrever
+            const pendingItems = this.db.getPendingSync();
+            const protectedIds = new Set(pendingItems.map(p => p.record_data?.id).filter(Boolean));
+
+            const [
+                { data: remoteClientes },
+                { data: remoteOrcamentos },
+                { data: remoteItens },
+                { data: remoteVendas },
+                { data: remoteFornecedores },
+                { data: remoteCustos }
+            ] = await Promise.all([
+                this.supabase.from('clientes').select('*'),
+                this.supabase.from('orcamentos').select('*'),
+                this.supabase.from('itens_orcamento').select('*'),
+                this.supabase.from('vendas').select('*'),
+                this.supabase.from('fornecedores').select('*'),
+                this.supabase.from('custos').select('*')
+            ]);
+
+            const filter = (rows) => (rows || []).filter(r => !protectedIds.has(r.id));
+
+            this.db.setSyncing(true);
+            try {
+                // Clientes
+                const stmtCli = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO clientes (id, nome, email, telefone, cpf_cnpj, endereco, numero, complemento, bairro, cidade, cep, condominio, created_at, updated_at, sync_id)
+                    VALUES (@id, @nome, @email, @telefone, @cpf_cnpj, @endereco, @numero, @complemento, @bairro, @cidade, @cep, @condominio, @created_at, @updated_at, @sync_id)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtCli.run(r); })(filter(remoteClientes));
+
+                // Orçamentos
+                const stmtOrc = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO orcamentos (id, numero, cliente_id, vendedor, status, valor_total, observacoes, prazo_pagamento, prazo_entrega, garantia, pdf_path, created_at, updated_at, sync_id)
+                    VALUES (@id, @numero, @cliente_id, @vendedor, @status, @valor_total, @observacoes, @prazo_pagamento, @prazo_entrega, @garantia, @pdf_path, @created_at, @updated_at, @sync_id)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtOrc.run(r); })(filter(remoteOrcamentos));
+
+                // Itens de orçamento
+                const stmtItem = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO itens_orcamento (id, orcamento_id, quantidade, descricao, valor_unitario, valor_total, categoria)
+                    VALUES (@id, @orcamento_id, @quantidade, @descricao, @valor_unitario, @valor_total, @categoria)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtItem.run(r); })(filter(remoteItens));
+
+                // Vendas
+                const stmtVenda = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO vendas (id, numero, cliente_id, orcamento_id, data_venda, valor, custo, costureira, instalacao, outros_custos, lucro, observacoes, tipo_fluxo, etapa_atual, nome_costureira, nome_instalador, data_entrega_prevista, valor_entrada, falta_pagar, desconto, created_at, updated_at)
+                    VALUES (@id, @numero, @cliente_id, @orcamento_id, @data_venda, @valor, @custo, @costureira, @instalacao, @outros_custos, @lucro, @observacoes, @tipo_fluxo, @etapa_atual, @nome_costureira, @nome_instalador, @data_entrega_prevista, @valor_entrada, @falta_pagar, @desconto, @created_at, @updated_at)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtVenda.run(r); })(filter(remoteVendas));
+
+                // Fornecedores
+                const stmtForn = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO fornecedores (id, nome, contato, telefone, email, endereco, categoria, observacoes, created_at, updated_at, sync_id)
+                    VALUES (@id, @nome, @contato, @telefone, @email, @endereco, @categoria, @observacoes, @created_at, @updated_at, @sync_id)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtForn.run(r); })(filter(remoteFornecedores));
+
+                // Custos
+                const stmtCusto = this.db.db.prepare(`
+                    INSERT OR REPLACE INTO custos (id, descricao, categoria, valor, data_vencimento, data_pagamento, status, observacoes, created_at, updated_at, sync_id)
+                    VALUES (@id, @descricao, @categoria, @valor, @data_vencimento, @data_pagamento, @status, @observacoes, @created_at, @updated_at, @sync_id)
+                `);
+                this.db.db.transaction((rows) => { for (const r of rows) stmtCusto.run(r); })(filter(remoteCustos));
+            } finally {
+                this.db.setSyncing(false);
+            }
+
+            console.log('[SyncFromRemote] Concluído. Tabelas atualizadas com dados históricos.');
+            this.emitSyncEvent({ type: 'sync_from_remote' });
+
+        } catch (error) {
+            console.error('[SyncFromRemote] Erro:', error);
+        } finally {
+            this._syncingFromRemote = false;
+        }
     }
 
     // ========================================

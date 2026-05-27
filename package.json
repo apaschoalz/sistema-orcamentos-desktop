@@ -1,6 +1,6 @@
 {
   "name": "entre-tramas-orcamentos",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Sistema de Orçamentos Entre Tramas - Desktop App",
   "author": "Entre Tramas Interiores",
   "repository": {
@@ -53,7 +53,8 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "entre-tramas-orcamentos-setup-${version}.exe"
     },
     "nsis": {
       "oneClick": false,

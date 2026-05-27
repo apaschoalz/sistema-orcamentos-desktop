@@ -395,6 +395,9 @@ ipcMain.handle('db:getAllConfig', async () => {
     return db.getAllConfig();
 });
 
+// Versão do app
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
 // PDF Path
 ipcMain.handle('app:getPDFPath', async () => {
     const userDataPath = app.getPath('userData');
