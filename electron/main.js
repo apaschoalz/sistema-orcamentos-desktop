@@ -124,10 +124,41 @@ app.whenReady().then(() => {
             console.error('Erro no AutoUpdater:', err);
         });
 
+        autoUpdater.on('checking-for-update', () => {
+            console.log('[AutoUpdater] Verificando atualizações...');
+        });
+
+        autoUpdater.on('update-available', (info) => {
+            console.log('[AutoUpdater] Nova versão disponível:', info.version);
+        });
+
+        autoUpdater.on('update-not-available', () => {
+            console.log('[AutoUpdater] App já está na versão mais recente.');
+        });
+
         // Tentar buscar atualização apenas se não for ambiente de desenvolvimento
         if (process.env.NODE_ENV !== 'development') {
+            // Verificação imediata ao iniciar
             autoUpdater.checkForUpdatesAndNotify();
+
+            // Verificação periódica a cada 2 horas (app pode ficar aberto dias inteiros)
+            setInterval(() => {
+                autoUpdater.checkForUpdatesAndNotify();
+            }, 2 * 60 * 60 * 1000);
         }
+
+        // IPC para verificação manual via botão na tela de Configurações
+        ipcMain.handle('app:checkForUpdates', async () => {
+            if (process.env.NODE_ENV === 'development') {
+                return { status: 'dev', message: 'Auto-update desabilitado em desenvolvimento.' };
+            }
+            try {
+                await autoUpdater.checkForUpdates();
+                return { status: 'ok' };
+            } catch (e) {
+                return { status: 'error', message: e.message };
+            }
+        });
 
     } catch (error) {
         console.error('Erro fatal na inicialização:', error);

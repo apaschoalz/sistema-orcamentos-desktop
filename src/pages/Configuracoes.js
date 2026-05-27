@@ -7,9 +7,15 @@ function Configuracoes() {
     const [syncing, setSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState(null);
     const [message, setMessage] = useState('');
+    const [appVersion, setAppVersion] = useState('');
+    const [checkingUpdate, setCheckingUpdate] = useState(false);
+    const [updateMsg, setUpdateMsg] = useState('');
 
     useEffect(() => {
         loadConfig();
+        if (window.electronAPI?.getAppVersion) {
+            window.electronAPI.getAppVersion().then(v => setAppVersion(v));
+        }
     }, []);
 
     const loadConfig = async () => {
@@ -385,6 +391,54 @@ function Configuracoes() {
                         placeholder="Copie o ID da URL da pasta"
                     />
                 </div>
+            </div>
+
+            {/* Sobre / Atualizações */}
+            <div className="card">
+                <h3 style={{ marginBottom: '20px' }}>
+                    <i className="fas fa-sync-alt" style={{ marginRight: '10px', color: 'var(--primary)' }}></i>
+                    Sobre &amp; Atualizações
+                </h3>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                    <div>
+                        <p style={{ margin: 0, fontWeight: '600' }}>Entre Tramas — Orçamentos</p>
+                        <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            Versão atual: <strong>{appVersion ? `v${appVersion}` : 'carregando...'}</strong>
+                        </p>
+                        <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                            O app verifica atualizações automaticamente a cada 2 horas.
+                        </p>
+                    </div>
+
+                    <button
+                        className="btn btn-secondary"
+                        disabled={checkingUpdate}
+                        onClick={async () => {
+                            setCheckingUpdate(true);
+                            setUpdateMsg('');
+                            try {
+                                const res = await window.electronAPI.checkForUpdates();
+                                if (res?.status === 'dev') {
+                                    setUpdateMsg('ℹ️ Auto-update desabilitado em modo desenvolvimento.');
+                                } else {
+                                    setUpdateMsg('✅ Verificação iniciada. Se houver atualização, você será avisado em instantes.');
+                                }
+                            } catch (e) {
+                                setUpdateMsg('❌ Erro ao verificar: ' + e.message);
+                            } finally {
+                                setCheckingUpdate(false);
+                            }
+                        }}
+                    >
+                        <i className={`fas ${checkingUpdate ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`}></i>
+                        {checkingUpdate ? 'Verificando...' : 'Verificar Atualização Agora'}
+                    </button>
+                </div>
+
+                {updateMsg && (
+                    <p style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{updateMsg}</p>
+                )}
             </div>
         </div>
     );

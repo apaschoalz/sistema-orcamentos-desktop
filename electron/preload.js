@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // App info
     getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+    checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
 
     // Paths
     getPDFPath: () => ipcRenderer.invoke('app:getPDFPath'),
