@@ -9,6 +9,7 @@ function Orcamentos() {
     const [orcamentos, setOrcamentos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filtroStatus, setFiltroStatus] = useState(searchParams.get('status') || '');
+    const [busca, setBusca] = useState('');
 
     useEffect(() => {
         loadOrcamentos();
@@ -70,9 +71,24 @@ function Orcamentos() {
         return badges[status] || 'badge-pending';
     };
 
-    const filteredOrcamentos = filtroStatus
+    const porStatus = filtroStatus
         ? orcamentos.filter(o => o.status === filtroStatus)
         : orcamentos;
+
+    const filteredOrcamentos = busca.trim()
+        ? porStatus.filter(o => {
+            const q = busca.toLowerCase();
+            return (
+                (o.numero             || '').toLowerCase().includes(q) ||
+                (o.cliente_nome       || '').toLowerCase().includes(q) ||
+                (o.cliente_cpf_cnpj   || '').toLowerCase().includes(q) ||
+                (o.cliente_email      || '').toLowerCase().includes(q) ||
+                (o.cliente_endereco   || '').toLowerCase().includes(q) ||
+                (o.cliente_bairro     || '').toLowerCase().includes(q) ||
+                (o.cliente_cidade     || '').toLowerCase().includes(q)
+            );
+        })
+        : porStatus;
 
     if (loading) {
         return (
@@ -95,9 +111,34 @@ function Orcamentos() {
                 </Link>
             </div>
 
+            {/* Busca */}
+            <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <i className="fas fa-search" style={{ color: 'var(--text-muted)' }}></i>
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Buscar por número, cliente, CPF, e-mail, endereço..."
+                        value={busca}
+                        onChange={e => setBusca(e.target.value)}
+                        style={{ flex: 1 }}
+                    />
+                    {busca && (
+                        <button className="btn btn-sm btn-secondary" onClick={() => setBusca('')}>
+                            <i className="fas fa-times"></i> Limpar
+                        </button>
+                    )}
+                </div>
+                {busca && (
+                    <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {filteredOrcamentos.length} resultado(s) encontrado(s)
+                    </p>
+                )}
+            </div>
+
             {/* Filtros */}
             <div className="card">
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Filtrar por status:</span>
                     <button
                         className={`btn btn-sm ${!filtroStatus ? 'btn-primary' : 'btn-secondary'}`}
@@ -128,11 +169,17 @@ function Orcamentos() {
 
             {/* Lista */}
             <div className="card">
-                {filteredOrcamentos.length === 0 ? (
+                {orcamentos.length === 0 ? (
                     <div className="empty-state">
                         <i className="fas fa-file-invoice"></i>
-                        <h3>Nenhum orçamento encontrado</h3>
+                        <h3>Nenhum orçamento cadastrado</h3>
                         <p>Crie seu primeiro orçamento clicando no botão acima</p>
+                    </div>
+                ) : filteredOrcamentos.length === 0 ? (
+                    <div className="empty-state">
+                        <i className="fas fa-search"></i>
+                        <h3>Nenhum orçamento encontrado</h3>
+                        <p>Tente outro termo de busca ou filtro.</p>
                     </div>
                 ) : (
                     <div className="table-container">

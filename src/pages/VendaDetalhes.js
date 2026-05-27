@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSyncVersion } from '../SyncContext';
 
 function VendaDetalhes() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const syncVersion = useSyncVersion();
     const [venda, setVenda] = useState(null);
     const [loading, setLoading] = useState(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     useEffect(() => {
         loadVenda();
-    }, [id]);
+    }, [id, syncVersion]);
 
     const loadVenda = async () => {
         try {

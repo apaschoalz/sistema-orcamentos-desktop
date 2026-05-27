@@ -7,6 +7,7 @@ function Vendas() {
     const syncVersion = useSyncVersion();
     const [vendas, setVendas] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [busca, setBusca] = useState('');
 
     // Estados para o gráfico
     const [showChartModal, setShowChartModal] = useState(false);
@@ -144,6 +145,23 @@ function Vendas() {
         );
     }
 
+    // Filtro de busca
+    const vendasFiltradas = busca.trim()
+        ? vendas.filter(v => {
+            const q = busca.toLowerCase();
+            return (
+                (v.cliente_nome    || '').toLowerCase().includes(q) ||
+                (v.cliente_cpf_cnpj|| '').toLowerCase().includes(q) ||
+                (v.cliente_email   || '').toLowerCase().includes(q) ||
+                (v.cliente_endereco|| '').toLowerCase().includes(q) ||
+                (v.cliente_bairro  || '').toLowerCase().includes(q) ||
+                (v.cliente_cidade  || '').toLowerCase().includes(q) ||
+                (v.numero          || '').toLowerCase().includes(q) ||
+                (v.orcamento_numero|| '').toLowerCase().includes(q)
+            );
+        })
+        : vendas;
+
     // Calcular totais
     const totalVendas = vendas.reduce((acc, v) => acc + (v.valor || 0), 0);
     const totalLucro = vendas.reduce((acc, v) => acc + (v.lucro || 0), 0);
@@ -256,7 +274,7 @@ function Vendas() {
                 </button>
             </div>
 
-            <div className="dashboard-grid">
+            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                 <div
                     className="stat-card clickable"
                     onClick={() => { setChartType('vendas'); setShowChartModal(true); }}
@@ -287,12 +305,43 @@ function Vendas() {
                 </div>
             </div>
 
+            {/* Busca */}
+            <div className="card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <i className="fas fa-search" style={{ color: 'var(--text-muted)' }}></i>
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Buscar por cliente, CPF, e-mail, endereço, código..."
+                        value={busca}
+                        onChange={e => setBusca(e.target.value)}
+                        style={{ flex: 1 }}
+                    />
+                    {busca && (
+                        <button className="btn btn-sm btn-secondary" onClick={() => setBusca('')}>
+                            <i className="fas fa-times"></i> Limpar
+                        </button>
+                    )}
+                </div>
+                {busca && (
+                    <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {vendasFiltradas.length} resultado(s) encontrado(s)
+                    </p>
+                )}
+            </div>
+
             <div className="card">
                 {vendas.length === 0 ? (
                     <div className="empty-state">
                         <i className="fas fa-shopping-cart"></i>
                         <h3>Nenhuma venda registrada</h3>
                         <p>Registre uma nova venda ou converta um orçamento aprovado.</p>
+                    </div>
+                ) : vendasFiltradas.length === 0 ? (
+                    <div className="empty-state">
+                        <i className="fas fa-search"></i>
+                        <h3>Nenhuma venda encontrada</h3>
+                        <p>Tente outro termo de busca.</p>
                     </div>
                 ) : (
                     <div className="table-container">
@@ -308,7 +357,7 @@ function Vendas() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {vendas.map((venda) => (
+                                {vendasFiltradas.map((venda) => (
                                     <tr
                                         key={venda.id}
                                         className="clickable-row"

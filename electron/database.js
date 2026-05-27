@@ -540,7 +540,13 @@ class AppDatabase {
 
     getOrcamentos() {
         return this.db.prepare(`
-            SELECT o.*, c.nome as cliente_nome 
+            SELECT o.*,
+                c.nome       as cliente_nome,
+                c.cpf_cnpj   as cliente_cpf_cnpj,
+                c.email      as cliente_email,
+                c.endereco   as cliente_endereco,
+                c.bairro     as cliente_bairro,
+                c.cidade     as cliente_cidade
             FROM orcamentos o
             LEFT JOIN clientes c ON o.cliente_id = c.id
             ORDER BY o.created_at DESC
@@ -701,7 +707,14 @@ class AppDatabase {
 
     getVendas() {
         return this.db.prepare(`
-            SELECT v.*, c.nome as cliente_nome, o.numero as orcamento_numero
+            SELECT v.*,
+                c.nome       as cliente_nome,
+                c.cpf_cnpj   as cliente_cpf_cnpj,
+                c.email      as cliente_email,
+                c.endereco   as cliente_endereco,
+                c.bairro     as cliente_bairro,
+                c.cidade     as cliente_cidade,
+                o.numero     as orcamento_numero
             FROM vendas v
             LEFT JOIN clientes c ON v.cliente_id = c.id
             LEFT JOIN orcamentos o ON v.orcamento_id = o.id
