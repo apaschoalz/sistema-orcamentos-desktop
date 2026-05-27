@@ -316,6 +316,32 @@ class SupabaseSync {
                 // (se falhar, vai ser re-adicionado no catch do pushData)
                 this.db.removePendingSync(item.id);
 
+                // Orçamentos criados offline têm número local que pode conflitar.
+                // Antes de subir, reservar um número definitivo no Supabase.
+                if (item.table_name === 'orcamentos' && item.operation === 'INSERT') {
+                    const numeroReservado = await this.reservarNumeroOrcamento();
+                    if (numeroReservado && numeroReservado !== item.record_data.numero) {
+                        const numAnterior = item.record_data.numero;
+                        item.record_data = { ...item.record_data, numero: numeroReservado };
+
+                        // Atualizar localmente para refletir o número definitivo
+                        this.db.setSyncing(true);
+                        try {
+                            this.db.updateOrcamento(item.record_data.id, { numero: numeroReservado });
+                        } finally {
+                            this.db.setSyncing(false);
+                        }
+
+                        console.log(`[Sync] Offline orcamento renumerado: ${numAnterior} -> ${numeroReservado}`);
+                        this.emitSyncEvent({
+                            type: 'numero_corrigido',
+                            table: 'orcamentos',
+                            id: item.record_data.id,
+                            numero: numeroReservado
+                        });
+                    }
+                }
+
                 // Processar com resolução de conflito inclusa no pushData
                 await this.pushData(item.table_name, item.record_data, item.operation);
 
