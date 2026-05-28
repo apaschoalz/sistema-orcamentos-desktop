@@ -81,7 +81,8 @@ const Custos = () => {
                 c.descricao?.toLowerCase().includes(b) ||
                 c.fornecedor?.toLowerCase().includes(b) ||
                 c.categoria?.toLowerCase().includes(b) ||
-                c.observacoes?.toLowerCase().includes(b)
+                c.observacoes?.toLowerCase().includes(b) ||
+                fmt(c.valor).toLowerCase().includes(b)
             );
         }
         // Sort: boletos vencidos e hoje primeiro, depois pendentes, depois pagos — por data
@@ -399,7 +400,7 @@ const Custos = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="Buscar por descrição, fornecedor, categoria..."
+                            placeholder="Buscar por descrição, fornecedor, categoria, valor..."
                             value={busca}
                             onChange={e => setBusca(e.target.value)}
                             style={{ paddingLeft: '42px', marginBottom: 0 }}
