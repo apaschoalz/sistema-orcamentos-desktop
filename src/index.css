@@ -349,7 +349,7 @@ body {
 
 .table {
     width: 100%;
-    min-width: 700px; /* scroll horizontal abaixo disto */
+    min-width: 860px; /* scroll horizontal abaixo disto */
     border-collapse: collapse;
 }
 

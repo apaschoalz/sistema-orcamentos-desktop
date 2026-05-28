@@ -427,7 +427,7 @@ const Custos = () => {
             </div>
 
             {/* ── Table ────────────────────────────────────────────────── */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'clip' }}>
                 {custos.length === 0 ? (
                     <div className="empty-state">
                         <i className="fas fa-receipt"></i>
