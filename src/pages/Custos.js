@@ -427,7 +427,14 @@ const Custos = () => {
             </div>
 
             {/* ── Table ────────────────────────────────────────────────── */}
-            <div className="card" style={{ padding: 0, overflow: 'clip' }}>
+            <div style={{
+                background: 'var(--bg-card)',
+                borderRadius: '16px',
+                border: '1px solid var(--border)',
+                marginBottom: '24px',
+                overflowX: 'auto',
+                overflowY: 'hidden'
+            }}>
                 {custos.length === 0 ? (
                     <div className="empty-state">
                         <i className="fas fa-receipt"></i>
@@ -444,8 +451,7 @@ const Custos = () => {
                         <p>Tente outros termos ou remova os filtros.</p>
                     </div>
                 ) : (
-                    <div className="table-container" style={{ border: 'none', borderRadius: 0 }}>
-                        <table className="table">
+                    <table className="table">
                             <thead>
                                 <tr>
                                     <th>Descrição</th>
@@ -597,7 +603,6 @@ const Custos = () => {
                                 })}
                             </tbody>
                         </table>
-                    </div>
                 )}
             </div>
         </div>
