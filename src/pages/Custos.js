@@ -451,7 +451,17 @@ const Custos = () => {
                         <p>Tente outros termos ou remova os filtros.</p>
                     </div>
                 ) : (
-                    <table className="table">
+                    <table className="table" style={{ tableLayout: 'fixed' }}>
+                        <colgroup>
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '10%' }} />
+                            <col style={{ width: '9%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '15%' }} />
+                        </colgroup>
                             <thead>
                                 <tr>
                                     <th>Descrição</th>
@@ -498,7 +508,7 @@ const Custos = () => {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                                            <td style={{ color: 'var(--text-muted)', fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {c.fornecedor || '—'}
                                             </td>
                                             <td>
@@ -541,23 +551,23 @@ const Custos = () => {
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                                     {c.status === 'Pendente' ? (
                                                         <button
                                                             title="Marcar como Pago"
                                                             onClick={() => handleMarcarPago(c)}
                                                             style={{
-                                                                padding: '6px 12px',
-                                                                borderRadius: '8px',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '7px',
                                                                 border: '1px solid rgba(201,169,98,0.35)',
                                                                 background: 'rgba(201,169,98,0.12)',
                                                                 color: 'var(--secondary)',
                                                                 cursor: 'pointer',
-                                                                fontSize: '0.78rem',
+                                                                fontSize: '0.75rem',
                                                                 fontWeight: 600,
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '5px',
+                                                                gap: '4px',
                                                                 whiteSpace: 'nowrap'
                                                             }}
                                                         >
@@ -568,31 +578,34 @@ const Custos = () => {
                                                             title="Desfazer pagamento"
                                                             onClick={() => handleDesmarcarPago(c)}
                                                             style={{
-                                                                padding: '6px 12px',
-                                                                borderRadius: '8px',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '7px',
                                                                 border: '1px solid rgba(199,93,93,0.3)',
                                                                 background: 'rgba(199,93,93,0.08)',
                                                                 color: 'var(--danger)',
                                                                 cursor: 'pointer',
-                                                                fontSize: '0.78rem',
+                                                                fontSize: '0.75rem',
                                                                 fontWeight: 600,
                                                                 display: 'flex',
                                                                 alignItems: 'center',
-                                                                gap: '5px',
+                                                                gap: '4px',
                                                                 whiteSpace: 'nowrap'
                                                             }}
                                                         >
                                                             <i className="fas fa-undo"></i> Desfazer
                                                         </button>
                                                     )}
-                                                    <button className="action-btn" title="Editar" onClick={() => openForm(c)}>
+                                                    <button
+                                                        title="Editar"
+                                                        onClick={() => openForm(c)}
+                                                        style={{ width: '28px', height: '28px', borderRadius: '7px', border: 'none', background: 'var(--bg-dark)', color: 'var(--text-muted)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0 }}
+                                                    >
                                                         <i className="fas fa-edit"></i>
                                                     </button>
                                                     <button
-                                                        className="action-btn"
                                                         title="Excluir"
                                                         onClick={() => handleDelete(c.id)}
-                                                        style={{ color: 'var(--danger)' }}
+                                                        style={{ width: '28px', height: '28px', borderRadius: '7px', border: 'none', background: 'var(--bg-dark)', color: 'var(--danger)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0 }}
                                                     >
                                                         <i className="fas fa-trash"></i>
                                                     </button>
