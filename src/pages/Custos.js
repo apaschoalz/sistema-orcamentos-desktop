@@ -190,20 +190,20 @@ const Custos = () => {
             </div>
 
             {/* ── Stats Cards ──────────────────────────────────────────── */}
-            <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: '28px' }}>
+            <div className="stats-grid" style={{ marginBottom: '28px' }}>
                 <div className="stat-card primary">
                     <div className="stat-icon"><i className="fas fa-calendar-alt"></i></div>
-                    <div className="stat-value" style={{ fontSize: '1.5rem' }}>{fmt(stats.totalMes)}</div>
+                    <div className="stat-value">{fmt(stats.totalMes)}</div>
                     <div className="stat-label">Lançado este mês</div>
                 </div>
                 <div className="stat-card success">
                     <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
-                    <div className="stat-value" style={{ color: 'var(--secondary)', fontSize: '1.5rem' }}>{fmt(stats.totalPago)}</div>
+                    <div className="stat-value" style={{ color: 'var(--secondary)' }}>{fmt(stats.totalPago)}</div>
                     <div className="stat-label">Total Pago</div>
                 </div>
                 <div className="stat-card warning">
                     <div className="stat-icon"><i className="fas fa-clock"></i></div>
-                    <div className="stat-value" style={{ color: 'var(--warning)', fontSize: '1.5rem' }}>{fmt(stats.totalPendente)}</div>
+                    <div className="stat-value" style={{ color: 'var(--warning)' }}>{fmt(stats.totalPendente)}</div>
                     <div className="stat-label">Total Pendente</div>
                 </div>
                 <div className={`stat-card ${(stats.boletosHoje + stats.boletosVencidos) > 0 ? 'danger' : 'primary'}`}>
@@ -213,7 +213,6 @@ const Custos = () => {
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                         <div className="stat-value" style={{
                             color: stats.boletosHoje > 0 ? 'var(--danger)' : stats.boletosVencidos > 0 ? 'var(--danger)' : 'var(--text-muted)',
-                            fontSize: '2.2rem'
                         }}>
                             {stats.boletosHoje + stats.boletosVencidos}
                         </div>
@@ -284,7 +283,7 @@ const Custos = () => {
 
                     <form onSubmit={handleSubmit}>
                         {/* Row 1 */}
-                        <div className="form-row" style={{ gridTemplateColumns: '2fr 1fr 1fr' }}>
+                        <div className="form-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                             <div className="form-group">
                                 <label className="form-label">Descrição *</label>
                                 <input
@@ -323,7 +322,7 @@ const Custos = () => {
                         </div>
 
                         {/* Row 2 */}
-                        <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+                        <div className="form-row" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                             <div className="form-group">
                                 <label className="form-label">Valor (R$) *</label>
                                 <input type="number" step="0.01" min="0" className="form-input" name="valor" value={form.valor} onChange={handleInput} required placeholder="0,00" />
