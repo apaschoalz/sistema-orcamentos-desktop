@@ -96,66 +96,110 @@ app.whenReady().then(() => {
             }
         });
 
-        // Configurar e iniciar a verificação de atualizações (Auto-Update)
+        // ============================================================
+        // AUTO-UPDATE — electron-updater
+        // ============================================================
         autoUpdater.logger = {
-            info(msg) { console.log('[AutoUpdater]', msg); },
-            warn(msg) { console.warn('[AutoUpdater]', msg); },
+            info(msg)  { console.log('[AutoUpdater]', msg); },
+            warn(msg)  { console.warn('[AutoUpdater]', msg); },
             error(msg) { console.error('[AutoUpdater]', msg); }
         };
-        autoUpdater.autoDownload = true; // Baixa automaticamente se encontrar update
-        autoUpdater.autoInstallOnAppQuit = true; // Instala ao fechar o app
+        autoUpdater.autoDownload = true;        // baixa em segundo plano automaticamente
+        autoUpdater.autoInstallOnAppQuit = true; // instala na próxima vez que fechar
 
-        // Ouve eventos do autoUpdater para avisar o usuário, se quiser
-        autoUpdater.on('update-downloaded', (info) => {
+        // 1) Update encontrado → avisa imediatamente para o usuário não fechar
+        autoUpdater.on('update-available', (info) => {
+            console.log('[AutoUpdater] Nova versão disponível:', info.version);
             dialog.showMessageBox(mainWindow, {
                 type: 'info',
-                title: 'Atualização Pronta',
-                message: 'Uma nova versão do sistema foi baixada em segundo plano.',
-                detail: 'A atualização será instalada automaticamente quando você fechar o aplicativo. Ou você pode reiniciar agora mesmo para instalar.',
-                buttons: ['Reiniciar e Instalar Agora', 'Instalar Depois (Ao Fechar)']
-            }).then((result) => {
-                if (result.response === 0) {
-                    autoUpdater.quitAndInstall();
-                }
-            });
+                title: `Atualização Disponível — v${info.version}`,
+                message: `Nova versão ${info.version} encontrada!`,
+                detail: 'O download está sendo feito em segundo plano (~90 MB).\nQuando terminar, você receberá outra mensagem para reiniciar.\n\nDeixe o app aberto por alguns minutos.',
+                buttons: ['OK, aguardar'],
+                defaultId: 0
+            }).catch(() => {});
         });
 
+        // 2) Progresso do download → envia para UI (barra de progresso se quiser)
+        autoUpdater.on('download-progress', (progress) => {
+            const pct = Math.round(progress.percent);
+            console.log(`[AutoUpdater] Download: ${pct}%`);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update:progress', { percent: pct });
+            }
+        });
+
+        // 3) Download concluído → mostra diálogo para reiniciar
+        autoUpdater.on('update-downloaded', (info) => {
+            console.log('[AutoUpdater] Download concluído:', info.version);
+            dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: `Atualização Pronta — v${info.version}`,
+                message: `v${info.version} baixada e pronta para instalar!`,
+                detail: 'Clique em "Reiniciar Agora" para aplicar a atualização imediatamente,\nou clique em "Depois" — ela será instalada automaticamente quando você fechar o app.',
+                buttons: ['Reiniciar Agora', 'Instalar ao Fechar'],
+                defaultId: 0
+            }).then((result) => {
+                if (result.response === 0) {
+                    autoUpdater.quitAndInstall(false, true);
+                }
+            }).catch(() => {});
+        });
+
+        // 4) Erro — loga e avisa se for erro crítico (não de rede)
         autoUpdater.on('error', (err) => {
-            console.error('Erro no AutoUpdater:', err);
+            console.error('[AutoUpdater] Erro:', err?.message || err);
+            const msg = (err?.message || '').toLowerCase();
+            const isNetworkErr = msg.includes('net::') || msg.includes('enotfound') ||
+                                 msg.includes('econnrefused') || msg.includes('etimedout') ||
+                                 msg.includes('fetch') || msg.includes('network');
+            if (!isNetworkErr) {
+                console.error('[AutoUpdater] Erro não-rede — verificar log.');
+            }
         });
 
         autoUpdater.on('checking-for-update', () => {
             console.log('[AutoUpdater] Verificando atualizações...');
         });
 
-        autoUpdater.on('update-available', (info) => {
-            console.log('[AutoUpdater] Nova versão disponível:', info.version);
+        autoUpdater.on('update-not-available', (info) => {
+            console.log('[AutoUpdater] Versão atual é a mais recente:', info?.version);
         });
 
-        autoUpdater.on('update-not-available', () => {
-            console.log('[AutoUpdater] App já está na versão mais recente.');
-        });
+        // Verificar APENAS em app empacotado (não em npm start / desenvolvimento)
+        if (app.isPackaged) {
+            // Primeira verificação: aguardar 8s para o app estabilizar
+            setTimeout(() => {
+                autoUpdater.checkForUpdates().catch(e =>
+                    console.error('[AutoUpdater] Falha na verificação inicial:', e?.message)
+                );
+            }, 8000);
 
-        // Tentar buscar atualização apenas se não for ambiente de desenvolvimento
-        if (process.env.NODE_ENV !== 'development') {
-            // Verificação imediata ao iniciar
-            autoUpdater.checkForUpdatesAndNotify();
-
-            // Verificação periódica a cada 2 horas (app pode ficar aberto dias inteiros)
+            // Verificação periódica a cada 2 horas
             setInterval(() => {
-                autoUpdater.checkForUpdatesAndNotify();
+                autoUpdater.checkForUpdates().catch(e =>
+                    console.error('[AutoUpdater] Falha na verificação periódica:', e?.message)
+                );
             }, 2 * 60 * 60 * 1000);
         }
 
         // IPC para verificação manual via botão na tela de Configurações
         ipcMain.handle('app:checkForUpdates', async () => {
-            if (process.env.NODE_ENV === 'development') {
+            if (!app.isPackaged) {
                 return { status: 'dev', message: 'Auto-update desabilitado em desenvolvimento.' };
             }
             try {
-                await autoUpdater.checkForUpdates();
-                return { status: 'ok' };
+                const result = await autoUpdater.checkForUpdates();
+                if (result && result.updateInfo) {
+                    const current = app.getVersion();
+                    const latest = result.updateInfo.version;
+                    if (latest !== current) {
+                        return { status: 'available', version: latest };
+                    }
+                }
+                return { status: 'latest', version: app.getVersion() };
             } catch (e) {
+                console.error('[AutoUpdater] Erro manual:', e?.message);
                 return { status: 'error', message: e.message };
             }
         });
