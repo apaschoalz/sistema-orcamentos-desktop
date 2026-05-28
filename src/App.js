@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import BoletoAlertModal from './components/BoletoAlertModal';
 import Dashboard from './pages/Dashboard';
 import NovoOrcamento from './pages/NovoOrcamento';
 import Buscar from './pages/Buscar';
@@ -18,9 +19,17 @@ import Fornecedores from './pages/Fornecedores';
 import Custos from './pages/Custos';
 import Balanco from './pages/Balanco';
 
+const getLocalDateStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 function App() {
     const location = useLocation();
     const [appVersion, setAppVersion] = useState('');
+    const [boletosHoje, setBoletosHoje] = useState([]);
+    const [showBoletoModal, setShowBoletoModal] = useState(false);
+    const boletoChecked = useRef(false);
 
     useEffect(() => {
         if (window.electronAPI?.getAppVersion) {
@@ -28,8 +37,60 @@ function App() {
         }
     }, []);
 
+    // Verificar boletos vencendo hoje ao abrir o app (uma vez por sessão)
+    useEffect(() => {
+        if (boletoChecked.current) return;
+        boletoChecked.current = true;
+        const timer = setTimeout(checkBoletosHoje, 3000); // aguardar init Electron
+        return () => clearTimeout(timer);
+    }, []);
+
+    const checkBoletosHoje = async () => {
+        if (!window.electronAPI?.getCustos) return;
+        try {
+            const today = getLocalDateStr();
+            const custos = await window.electronAPI.getCustos();
+            const pendentes = (custos || []).filter(c =>
+                c.categoria === 'Boleto Bancário' &&
+                c.data_vencimento === today &&
+                c.status === 'Pendente'
+            );
+            if (pendentes.length > 0) {
+                setBoletosHoje(pendentes);
+                setShowBoletoModal(true);
+            }
+        } catch (e) {
+            console.error('[App] Erro ao verificar boletos:', e);
+        }
+    };
+
+    const handleMarcarBoleto = async (id) => {
+        const boleto = boletosHoje.find(b => b.id === id);
+        if (!boleto || !window.electronAPI?.updateCusto) return;
+        try {
+            const today = getLocalDateStr();
+            await window.electronAPI.updateCusto(id, {
+                ...boleto,
+                status: 'Pago',
+                data_pagamento: boleto.data_pagamento || today
+            });
+            const novos = boletosHoje.filter(b => b.id !== id);
+            setBoletosHoje(novos);
+            if (novos.length === 0) setShowBoletoModal(false);
+        } catch (e) {
+            console.error('[App] Erro ao marcar boleto:', e);
+        }
+    };
+
     return (
         <div className="app-container">
+            {showBoletoModal && (
+                <BoletoAlertModal
+                    boletos={boletosHoje}
+                    onClose={() => setShowBoletoModal(false)}
+                    onMarcarPago={handleMarcarBoleto}
+                />
+            )}
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-header">
