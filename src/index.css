@@ -120,8 +120,7 @@ body {
     padding: 32px;
     min-height: 100vh;
     min-width: 0;
-    max-width: calc(100vw - 280px);
-    overflow-x: hidden;
+    width: calc(100vw - 280px);
     box-sizing: border-box;
 }
 
@@ -346,16 +345,18 @@ body {
     overflow-x: auto;
     border-radius: 12px;
     border: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
 }
 
 .table {
     width: 100%;
+    min-width: 700px; /* scroll horizontal abaixo disto */
     border-collapse: collapse;
 }
 
 .table th,
 .table td {
-    padding: 16px;
+    padding: 12px 14px;
     text-align: left;
     border-bottom: 1px solid var(--border);
 }
@@ -364,9 +365,10 @@ body {
     background: var(--bg-card-hover);
     font-weight: 600;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .table tr:hover {
@@ -653,7 +655,7 @@ body {
 
     .main-content {
         margin-left: 80px;
-        max-width: calc(100vw - 80px);
+        width: calc(100vw - 80px);
         padding: 20px;
     }
 }
@@ -675,5 +677,10 @@ body {
 
     .stat-value {
         font-size: clamp(1.1rem, 2vw, 1.6rem);
+    }
+
+    .table th,
+    .table td {
+        padding: 10px 12px;
     }
 }
