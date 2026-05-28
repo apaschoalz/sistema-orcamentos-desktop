@@ -216,13 +216,12 @@ body {
 }
 
 .stat-value {
-    font-size: clamp(1.25rem, 2.5vw, 2rem);
+    font-size: clamp(1rem, 1.6vw, 1.4rem);
     font-weight: 700;
     margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
 }
 
 .stat-label {
@@ -673,10 +672,6 @@ body {
 
     .stat-card {
         padding: 16px;
-    }
-
-    .stat-value {
-        font-size: clamp(1.1rem, 2vw, 1.6rem);
     }
 
     .table th,

@@ -156,6 +156,19 @@ const Custos = () => {
         }
     };
 
+    const handleDesmarcarPago = async (custo) => {
+        try {
+            await window.electronAPI.updateCusto(custo.id, {
+                ...custo,
+                status: 'Pendente',
+                data_pagamento: ''
+            });
+            await loadCustos();
+        } catch (err) {
+            alert('Erro: ' + err.message);
+        }
+    };
+
     // ── Row classification ────────────────────────────────────────────────
     const isBoletoHoje = (c) => c.categoria === 'Boleto Bancário' && c.data_vencimento === today && c.status === 'Pendente';
     const isBoletoVencido = (c) => c.categoria === 'Boleto Bancário' && c.data_vencimento < today && c.status === 'Pendente';
@@ -458,11 +471,18 @@ const Custos = () => {
                                                     ? 'rgba(199,93,93,0.05)'
                                                     : undefined
                                         }}>
-                                            <td style={{ maxWidth: '220px' }}>
+                                            <td
+                                                style={{ maxWidth: '220px', cursor: 'pointer' }}
+                                                onClick={() => openForm(c)}
+                                                title="Clique para visualizar / editar"
+                                            >
                                                 <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     {hoje && <span title="Vence hoje">🔔</span>}
                                                     {vencido && <span title="Vencido">⚠️</span>}
-                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <span style={{
+                                                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                        color: 'var(--primary)', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '3px'
+                                                    }}>
                                                         {c.descricao}
                                                     </span>
                                                 </div>
@@ -515,8 +535,8 @@ const Custos = () => {
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                                    {c.status === 'Pendente' && (
+                                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                                    {c.status === 'Pendente' ? (
                                                         <button
                                                             title="Marcar como Pago"
                                                             onClick={() => handleMarcarPago(c)}
@@ -536,6 +556,27 @@ const Custos = () => {
                                                             }}
                                                         >
                                                             <i className="fas fa-check"></i> Pago
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            title="Desfazer pagamento"
+                                                            onClick={() => handleDesmarcarPago(c)}
+                                                            style={{
+                                                                padding: '6px 12px',
+                                                                borderRadius: '8px',
+                                                                border: '1px solid rgba(199,93,93,0.3)',
+                                                                background: 'rgba(199,93,93,0.08)',
+                                                                color: 'var(--danger)',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.78rem',
+                                                                fontWeight: 600,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '5px',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            <i className="fas fa-undo"></i> Desfazer
                                                         </button>
                                                     )}
                                                     <button className="action-btn" title="Editar" onClick={() => openForm(c)}>
