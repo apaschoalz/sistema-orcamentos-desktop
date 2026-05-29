@@ -629,14 +629,13 @@ const Custos = () => {
                 ) : (
                     <table className="table" style={{ tableLayout: 'fixed' }}>
                         <colgroup>
-                            <col style={{ width: '22%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '23%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '12%' }} />
                             <col style={{ width: '10%' }} />
                             <col style={{ width: '9%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '11%' }} />
-                            <col style={{ width: '15%' }} />
+                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '22%' }} />
                         </colgroup>
                             <thead>
                                 <tr>
@@ -646,8 +645,7 @@ const Custos = () => {
                                     <th>Vencimento</th>
                                     <th>Pgto.</th>
                                     <th style={{ textAlign: 'right' }}>Valor</th>
-                                    <th>Status</th>
-                                    <th style={{ textAlign: 'right' }}>Ações</th>
+                                    <th style={{ textAlign: 'right' }}>Status / Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -717,17 +715,18 @@ const Custos = () => {
                                             <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                                 {fmt(c.valor)}
                                             </td>
-                                            <td>
-                                                <span className={`badge ${c.status === 'Pago' ? 'badge-approved' : 'badge-pending'}`}>
-                                                    {c.status === 'Pago' ? (
-                                                        <><i className="fas fa-check"></i> Pago</>
-                                                    ) : (
-                                                        <><i className="fas fa-clock"></i> Pendente</>
-                                                    )}
-                                                </span>
-                                            </td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                                                    {/* Badge de status */}
+                                                    <span className={`badge ${c.status === 'Pago' ? 'badge-approved' : 'badge-pending'}`}>
+                                                        {c.status === 'Pago' ? (
+                                                            <><i className="fas fa-check"></i> Pago</>
+                                                        ) : (
+                                                            <><i className="fas fa-clock"></i> Pendente</>
+                                                        )}
+                                                    </span>
+                                                    {/* Botões de ação */}
+                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                                                     {c.status === 'Pendente' ? (
                                                         <button
                                                             title="Marcar como Pago"
@@ -785,7 +784,8 @@ const Custos = () => {
                                                     >
                                                         <i className="fas fa-trash"></i>
                                                     </button>
-                                                </div>
+                                                    </div>{/* fim botões */}
+                                                </div>{/* fim coluna status+ações */}
                                             </td>
                                         </tr>
                                     );
