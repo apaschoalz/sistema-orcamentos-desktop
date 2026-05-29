@@ -499,54 +499,81 @@ const Custos = () => {
                         </button>
                     </div>
 
-                    {/* Categorias base (não editáveis) */}
+                    {/* Categorias base (clicáveis para filtrar) */}
                     <div style={{ marginBottom: '16px' }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Categorias padrão
+                            Categorias padrão <span style={{ fontWeight: 400, textTransform: 'none', fontSize: '0.75rem' }}>— clique para filtrar</span>
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            {CATEGORIAS_BASE.map(cat => (
-                                <span key={cat} style={{
-                                    padding: '5px 14px', borderRadius: '20px', fontSize: '0.82rem',
-                                    background: 'rgba(139,115,85,0.08)', color: 'var(--text-muted)',
-                                    border: '1px solid var(--border)'
-                                }}>
-                                    {cat}
-                                </span>
-                            ))}
+                            {CATEGORIAS_BASE.map(cat => {
+                                const ativa = filtroCategoria === cat;
+                                return (
+                                    <span
+                                        key={cat}
+                                        onClick={() => { setFiltroCategoria(ativa ? 'todas' : cat); setShowCatManager(false); }}
+                                        title={ativa ? 'Clique para remover filtro' : `Filtrar por "${cat}"`}
+                                        style={{
+                                            padding: '5px 14px', borderRadius: '20px', fontSize: '0.82rem',
+                                            cursor: 'pointer', userSelect: 'none',
+                                            background: ativa ? 'rgba(139,115,85,0.25)' : 'rgba(139,115,85,0.08)',
+                                            color: ativa ? 'var(--primary)' : 'var(--text-muted)',
+                                            border: ativa ? '1px solid rgba(139,115,85,0.5)' : '1px solid var(--border)',
+                                            fontWeight: ativa ? 600 : 400,
+                                            transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        {ativa && <i className="fas fa-filter" style={{ fontSize: '0.7rem', marginRight: '5px' }}></i>}
+                                        {cat}
+                                    </span>
+                                );
+                            })}
                         </div>
                     </div>
 
-                    {/* Categorias customizadas */}
+                    {/* Categorias customizadas (clicáveis para filtrar + removíveis) */}
                     <div style={{ marginBottom: '16px' }}>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Categorias personalizadas
+                            Categorias personalizadas <span style={{ fontWeight: 400, textTransform: 'none', fontSize: '0.75rem' }}>— clique para filtrar</span>
                         </div>
                         {customCats.length === 0 ? (
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhuma categoria personalizada ainda.</p>
                         ) : (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                {customCats.map(cat => (
-                                    <span key={cat} style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                        padding: '5px 12px', borderRadius: '20px', fontSize: '0.82rem',
-                                        background: 'rgba(139,115,85,0.14)', color: 'var(--primary)',
-                                        border: '1px solid rgba(139,115,85,0.3)', fontWeight: 500
-                                    }}>
-                                        {cat}
-                                        <button
-                                            onClick={() => handleDeleteCat(cat)}
-                                            style={{
-                                                background: 'none', border: 'none', cursor: 'pointer',
-                                                color: 'var(--danger)', padding: '0', lineHeight: 1,
-                                                fontSize: '0.75rem', display: 'flex', alignItems: 'center'
-                                            }}
-                                            title={`Remover "${cat}"`}
-                                        >
-                                            <i className="fas fa-times-circle"></i>
-                                        </button>
-                                    </span>
-                                ))}
+                                {customCats.map(cat => {
+                                    const ativa = filtroCategoria === cat;
+                                    return (
+                                        <span key={cat} style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                            padding: '5px 12px', borderRadius: '20px', fontSize: '0.82rem',
+                                            cursor: 'pointer', userSelect: 'none',
+                                            background: ativa ? 'rgba(139,115,85,0.28)' : 'rgba(139,115,85,0.14)',
+                                            color: 'var(--primary)',
+                                            border: ativa ? '1px solid rgba(139,115,85,0.6)' : '1px solid rgba(139,115,85,0.3)',
+                                            fontWeight: ativa ? 700 : 500,
+                                            transition: 'all 0.15s'
+                                        }}>
+                                            <span
+                                                onClick={() => { setFiltroCategoria(ativa ? 'todas' : cat); setShowCatManager(false); }}
+                                                title={ativa ? 'Clique para remover filtro' : `Filtrar por "${cat}"`}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            >
+                                                {ativa && <i className="fas fa-filter" style={{ fontSize: '0.7rem' }}></i>}
+                                                {cat}
+                                            </span>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteCat(cat); }}
+                                                style={{
+                                                    background: 'none', border: 'none', cursor: 'pointer',
+                                                    color: 'var(--danger)', padding: '0', lineHeight: 1,
+                                                    fontSize: '0.75rem', display: 'flex', alignItems: 'center'
+                                                }}
+                                                title={`Remover "${cat}"`}
+                                            >
+                                                <i className="fas fa-times-circle"></i>
+                                            </button>
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
