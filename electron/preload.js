@@ -57,6 +57,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateFornecedor: (id, fornecedor) => ipcRenderer.invoke('db:updateFornecedor', id, fornecedor),
     deleteFornecedor: (id) => ipcRenderer.invoke('db:deleteFornecedor', id),
 
+    // Pagamentos a Receber
+    getPagamentosReceber: () => ipcRenderer.invoke('db:getPagamentosReceber'),
+    getPagamentoReceberById: (id) => ipcRenderer.invoke('db:getPagamentoReceberById', id),
+    createPagamentoReceber: (pagamento) => ipcRenderer.invoke('db:createPagamentoReceber', pagamento),
+    updatePagamentoReceber: (id, pagamento) => ipcRenderer.invoke('db:updatePagamentoReceber', id, pagamento),
+    deletePagamentoReceber: (id) => ipcRenderer.invoke('db:deletePagamentoReceber', id),
+
     // Custos
     getCustos: () => ipcRenderer.invoke('db:getCustos'),
     getCustoById: (id) => ipcRenderer.invoke('db:getCustoById', id),

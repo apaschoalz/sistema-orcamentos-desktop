@@ -389,6 +389,26 @@ class AppDatabase {
             )
         `);
 
+        // Pagamentos a Receber
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS pagamentos_receber (
+                id TEXT PRIMARY KEY,
+                descricao TEXT NOT NULL,
+                cliente_nome TEXT,
+                cliente_id TEXT REFERENCES clientes(id),
+                venda_id TEXT REFERENCES vendas(id),
+                valor REAL DEFAULT 0,
+                data_vencimento DATE,
+                data_recebimento DATE,
+                status TEXT DEFAULT 'Pendente',
+                categoria TEXT,
+                observacoes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                sync_id TEXT
+            )
+        `);
+
         // Configurações
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS configuracoes (
@@ -1138,6 +1158,77 @@ class AppDatabase {
     deleteCusto(id) {
         this.db.prepare('DELETE FROM custos WHERE id = ?').run(id);
         if (this.syncService) this.syncService.pushData('custos', { id }, 'DELETE');
+        return true;
+    }
+
+    // ========================================
+    // PAGAMENTOS A RECEBER
+    // ========================================
+
+    getPagamentosReceber() {
+        return this.db.prepare('SELECT * FROM pagamentos_receber ORDER BY data_vencimento ASC').all();
+    }
+
+    getPagamentoReceberById(id) {
+        return this.db.prepare('SELECT * FROM pagamentos_receber WHERE id = ?').get(id);
+    }
+
+    createPagamentoReceber(pagamento) {
+        const id = pagamento.id || uuidv4();
+        const stmt = this.db.prepare(`
+            INSERT INTO pagamentos_receber (
+                id, descricao, cliente_nome, cliente_id, venda_id, valor,
+                data_vencimento, data_recebimento, status, categoria, observacoes, sync_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        stmt.run(
+            id,
+            pagamento.descricao,
+            pagamento.cliente_nome || null,
+            pagamento.cliente_id || null,
+            pagamento.venda_id || null,
+            pagamento.valor || 0,
+            pagamento.data_vencimento || null,
+            pagamento.data_recebimento || null,
+            pagamento.status || 'Pendente',
+            pagamento.categoria || null,
+            pagamento.observacoes || null,
+            uuidv4()
+        );
+        const newPagamento = { ...pagamento, id };
+        if (this.syncService) this.syncService.pushData('pagamentos_receber', newPagamento, 'INSERT');
+        return newPagamento;
+    }
+
+    updatePagamentoReceber(id, pagamento) {
+        const stmt = this.db.prepare(`
+            UPDATE pagamentos_receber SET
+                descricao = ?, cliente_nome = ?, cliente_id = ?, venda_id = ?, valor = ?,
+                data_vencimento = ?, data_recebimento = ?, status = ?, categoria = ?, observacoes = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `);
+        stmt.run(
+            pagamento.descricao,
+            pagamento.cliente_nome || null,
+            pagamento.cliente_id || null,
+            pagamento.venda_id || null,
+            pagamento.valor || 0,
+            pagamento.data_vencimento || null,
+            pagamento.data_recebimento || null,
+            pagamento.status || 'Pendente',
+            pagamento.categoria || null,
+            pagamento.observacoes || null,
+            id
+        );
+        const updated = { ...pagamento, id };
+        if (this.syncService) this.syncService.pushData('pagamentos_receber', updated, 'UPDATE');
+        return updated;
+    }
+
+    deletePagamentoReceber(id) {
+        this.db.prepare('DELETE FROM pagamentos_receber WHERE id = ?').run(id);
+        if (this.syncService) this.syncService.pushData('pagamentos_receber', { id }, 'DELETE');
         return true;
     }
 

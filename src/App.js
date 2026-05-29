@@ -17,6 +17,7 @@ import NovoCliente from './pages/NovoCliente';
 import StatusPedido from './pages/StatusPedido';
 import Fornecedores from './pages/Fornecedores';
 import Custos from './pages/Custos';
+import PagamentosReceber from './pages/PagamentosReceber';
 import Balanco from './pages/Balanco';
 
 const getLocalDateStr = () => {
@@ -143,6 +144,11 @@ function App() {
                         <span>Custos</span>
                     </NavLink>
 
+                    <NavLink to="/pagamentos-receber" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <i className="fas fa-hand-holding-usd"></i>
+                        <span>Pgtos. a Receber</span>
+                    </NavLink>
+
                     <NavLink to="/balanco" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <i className="fas fa-chart-pie"></i>
                         <span>Balanço</span>
@@ -163,7 +169,7 @@ function App() {
 
                 <div className="sidebar-footer">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        {appVersion ? `v${appVersion}` : 'v1.1.8'} | © 2025 Entre Tramas
+                        {appVersion ? `v${appVersion}` : 'v1.4.0'} | © 2025 Entre Tramas
                     </div>
                 </div>
             </aside>
@@ -183,8 +189,9 @@ function App() {
                     <Route path="/clientes/:id" element={<ClienteDetalhes />} />
                     <Route path="/fornecedores" element={<Fornecedores />} />
                     <Route path="/custos" element={<Custos />} />
+                    <Route path="/pagamentos-receber" element={<PagamentosReceber />} />
                     <Route path="/balanco" element={<Balanco />} />
-                    <Route path="/vendas" element={<Vendas />} />
+<Route path="/vendas" element={<Vendas />} />
                     <Route path="/vendas/:id" element={<VendaDetalhes />} />
                     <Route path="/vendas/editar/:id" element={<NovaVenda />} />
                     <Route path="/vendas/nova" element={<NovaVenda />} />

@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSyncVersion } from '../SyncContext';
 
-const CATEGORIAS = [
+const CATEGORIAS_BASE = [
     'Aluguel', 'IPTU', 'Luz', 'Água', 'Internet', 'Gasolina',
     'Pro Labore', 'Materiais de Escritório', 'Costureira',
     'Instalador', 'Google Ads', 'Boleto Bancário', 'Outros'
 ];
+
+const CONFIG_KEY_CATS = 'custos_categorias_custom';
 
 const getLocalDateStr = () => {
     const d = new Date();
@@ -36,10 +38,59 @@ const Custos = () => {
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(FORM_EMPTY);
 
+    // ── Categorias personalizadas ──────────────────────────────────────────
+    const [customCats, setCustomCats] = useState([]);
+    const [showCatManager, setShowCatManager] = useState(false);
+    const [newCatInput, setNewCatInput] = useState('');
+
+    const todasCategorias = useMemo(() => {
+        const combined = [...CATEGORIAS_BASE, ...customCats];
+        return [...new Set(combined)]; // remove duplicates
+    }, [customCats]);
+
     const today = getLocalDateStr();
     const mesAtual = today.slice(0, 7);
 
-    useEffect(() => { loadCustos(); }, [syncVersion]);
+    useEffect(() => { loadCustos(); loadCustomCats(); }, [syncVersion]);
+
+    const loadCustomCats = async () => {
+        try {
+            const raw = await window.electronAPI.getConfig(CONFIG_KEY_CATS);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                setCustomCats(Array.isArray(parsed) ? parsed : []);
+            }
+        } catch (e) {
+            console.error('Erro ao carregar categorias customizadas:', e);
+        }
+    };
+
+    const saveCustomCats = async (cats) => {
+        try {
+            await window.electronAPI.setConfig(CONFIG_KEY_CATS, JSON.stringify(cats));
+            setCustomCats(cats);
+        } catch (e) {
+            alert('Erro ao salvar categorias: ' + e.message);
+        }
+    };
+
+    const handleAddCat = async () => {
+        const nome = newCatInput.trim();
+        if (!nome) return;
+        if (todasCategorias.includes(nome)) {
+            alert('Essa categoria já existe.');
+            return;
+        }
+        const updated = [...customCats, nome];
+        await saveCustomCats(updated);
+        setNewCatInput('');
+    };
+
+    const handleDeleteCat = async (cat) => {
+        if (!window.confirm(`Remover a categoria "${cat}"?`)) return;
+        const updated = customCats.filter(c => c !== cat);
+        await saveCustomCats(updated);
+    };
 
     const loadCustos = async () => {
         try {
@@ -315,7 +366,7 @@ const Custos = () => {
                                 <label className="form-label">Categoria *</label>
                                 <select className="form-input form-select" name="categoria" value={form.categoria} onChange={handleInput} required>
                                     <option value="">Selecione...</option>
-                                    {CATEGORIAS.map(cat => (
+                                    {todasCategorias.map(cat => (
                                         <option key={cat} value={cat}>
                                             {cat === 'Boleto Bancário' ? '📄 ' : ''}{cat}
                                         </option>
@@ -413,8 +464,16 @@ const Custos = () => {
                     </select>
                     <select className="form-input form-select" value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)} style={{ width: '210px', marginBottom: 0 }}>
                         <option value="todas">Todas as categorias</option>
-                        {CATEGORIAS.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        {todasCategorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
+                    <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setShowCatManager(v => !v)}
+                        title="Gerenciar categorias"
+                        style={{ whiteSpace: 'nowrap' }}
+                    >
+                        <i className="fas fa-tags"></i> Categorias
+                    </button>
                     {(busca || filtroStatus !== 'todos' || filtroCategoria !== 'todas') && (
                         <button className="btn btn-secondary btn-sm" onClick={() => { setBusca(''); setFiltroStatus('todos'); setFiltroCategoria('todas'); }}>
                             <i className="fas fa-times"></i> Limpar
@@ -426,6 +485,94 @@ const Custos = () => {
                     {custos.length !== custosVisiveis.length && ` de ${custos.length}`}
                 </div>
             </div>
+
+            {/* ── Gerenciador de Categorias ────────────────────────────── */}
+            {showCatManager && (
+                <div className="card" style={{ marginBottom: '16px', border: '1px solid var(--border)' }}>
+                    <div className="card-header" style={{ paddingBottom: '12px' }}>
+                        <h3 className="card-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <i className="fas fa-tags" style={{ color: 'var(--primary)' }}></i>
+                            Gerenciar Categorias
+                        </h3>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setShowCatManager(false)}>
+                            <i className="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    {/* Categorias base (não editáveis) */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Categorias padrão
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {CATEGORIAS_BASE.map(cat => (
+                                <span key={cat} style={{
+                                    padding: '5px 14px', borderRadius: '20px', fontSize: '0.82rem',
+                                    background: 'rgba(139,115,85,0.08)', color: 'var(--text-muted)',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    {cat}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Categorias customizadas */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Categorias personalizadas
+                        </div>
+                        {customCats.length === 0 ? (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhuma categoria personalizada ainda.</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {customCats.map(cat => (
+                                    <span key={cat} style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                        padding: '5px 12px', borderRadius: '20px', fontSize: '0.82rem',
+                                        background: 'rgba(139,115,85,0.14)', color: 'var(--primary)',
+                                        border: '1px solid rgba(139,115,85,0.3)', fontWeight: 500
+                                    }}>
+                                        {cat}
+                                        <button
+                                            onClick={() => handleDeleteCat(cat)}
+                                            style={{
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: 'var(--danger)', padding: '0', lineHeight: 1,
+                                                fontSize: '0.75rem', display: 'flex', alignItems: 'center'
+                                            }}
+                                            title={`Remover "${cat}"`}
+                                        >
+                                            <i className="fas fa-times-circle"></i>
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Input para nova categoria */}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', maxWidth: '440px' }}>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Nova categoria..."
+                            value={newCatInput}
+                            onChange={e => setNewCatInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddCat()}
+                            style={{ marginBottom: 0, flex: 1 }}
+                        />
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleAddCat}
+                            disabled={!newCatInput.trim()}
+                            style={{ whiteSpace: 'nowrap' }}
+                        >
+                            <i className="fas fa-plus"></i> Adicionar
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Table ────────────────────────────────────────────────── */}
             <div style={{

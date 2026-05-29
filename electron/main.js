@@ -45,17 +45,18 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            devTools: true  // Habilitar DevTools em produção
+            devTools: true           // Habilitar DevTools em produção
         },
         icon: path.join(__dirname, '../assets/icon.png'),
         title: 'Entre Tramas - Sistema de Orçamentos',
         autoHideMenuBar: true
     });
 
-    // Em desenvolvimento, carrega do servidor local
-    if (process.env.NODE_ENV === 'development') {
+    // app.isPackaged = false quando rodando via "electron ." (dev)
+    //                = true  quando é o app instalado (produção)
+    if (!app.isPackaged) {
         mainWindow.loadURL('http://localhost:3000');
-        mainWindow.webContents.openDevTools();
+        // DevTools opcional em dev — F12 para abrir/fechar
     } else {
         // Em produção, carrega o arquivo HTML buildado
         mainWindow.loadFile(path.join(__dirname, '../build/index.html'));
@@ -623,6 +624,30 @@ ipcMain.handle('db:updateCusto', async (event, id, custo) => {
 
 ipcMain.handle('db:deleteCusto', async (event, id) => {
     return db.deleteCusto(id);
+});
+
+// ========================================
+// Pagamentos a Receber
+// ========================================
+
+ipcMain.handle('db:getPagamentosReceber', async () => {
+    return db.getPagamentosReceber();
+});
+
+ipcMain.handle('db:getPagamentoReceberById', async (event, id) => {
+    return db.getPagamentoReceberById(id);
+});
+
+ipcMain.handle('db:createPagamentoReceber', async (event, pagamento) => {
+    return db.createPagamentoReceber(pagamento);
+});
+
+ipcMain.handle('db:updatePagamentoReceber', async (event, id, pagamento) => {
+    return db.updatePagamentoReceber(id, pagamento);
+});
+
+ipcMain.handle('db:deletePagamentoReceber', async (event, id) => {
+    return db.deletePagamentoReceber(id);
 });
 
 // ========================================
