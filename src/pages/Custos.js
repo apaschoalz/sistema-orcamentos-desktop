@@ -101,27 +101,7 @@ const Custos = () => {
         }
     };
 
-    // ── Stats ─────────────────────────────────────────────────────────────
-    const stats = useMemo(() => {
-        const doMes = custos.filter(c => (c.data_vencimento || '').startsWith(mesAtual));
-        return {
-            totalMes: doMes.reduce((s, c) => s + (c.valor || 0), 0),
-            totalPago: custos.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0),
-            totalPendente: custos.filter(c => c.status === 'Pendente').reduce((s, c) => s + (c.valor || 0), 0),
-            boletosHoje: custos.filter(c =>
-                c.categoria === 'Boleto Bancário' &&
-                c.data_vencimento === today &&
-                c.status === 'Pendente'
-            ).length,
-            boletosVencidos: custos.filter(c =>
-                c.categoria === 'Boleto Bancário' &&
-                c.data_vencimento < today &&
-                c.status === 'Pendente'
-            ).length,
-        };
-    }, [custos, mesAtual, today]);
-
-    // ── Filtered list ─────────────────────────────────────────────────────
+    // ── Filtered list (calculado primeiro para alimentar os stats) ────────
     const custosVisiveis = useMemo(() => {
         let r = [...custos];
         if (filtroStatus !== 'todos') r = r.filter(c => c.status === filtroStatus);
@@ -144,6 +124,27 @@ const Custos = () => {
             return (a.data_vencimento || '').localeCompare(b.data_vencimento || '');
         });
     }, [custos, filtroStatus, filtroCategoria, busca, today]);
+
+    // ── Stats (calculados sobre a lista filtrada/visível) ──────────────────
+    const stats = useMemo(() => {
+        const base = custosVisiveis;
+        const doMes = base.filter(c => (c.data_vencimento || '').startsWith(mesAtual));
+        return {
+            totalMes: doMes.reduce((s, c) => s + (c.valor || 0), 0),
+            totalPago: base.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0),
+            totalPendente: base.filter(c => c.status === 'Pendente').reduce((s, c) => s + (c.valor || 0), 0),
+            boletosHoje: base.filter(c =>
+                c.categoria === 'Boleto Bancário' &&
+                c.data_vencimento === today &&
+                c.status === 'Pendente'
+            ).length,
+            boletosVencidos: base.filter(c =>
+                c.categoria === 'Boleto Bancário' &&
+                c.data_vencimento < today &&
+                c.status === 'Pendente'
+            ).length,
+        };
+    }, [custosVisiveis, mesAtual, today]);
 
     // ── Form handlers ─────────────────────────────────────────────────────
     const openForm = (custo = null) => {
