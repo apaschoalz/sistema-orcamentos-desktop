@@ -134,6 +134,10 @@ const Custos = () => {
             totalPago: base.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0),
             totalPendente: base.filter(c => c.status === 'Pendente').reduce((s, c) => s + (c.valor || 0), 0),
             // Boletos: sempre da lista não filtrada — são alertas independentes do filtro ativo
+            boletosPendentes: custos.filter(c =>
+                c.categoria === 'Boleto Bancário' &&
+                c.status === 'Pendente'
+            ).length,
             boletosHoje: custos.filter(c =>
                 c.categoria === 'Boleto Bancário' &&
                 c.data_vencimento === today &&
@@ -286,22 +290,20 @@ const Custos = () => {
                     <div className="stat-value" style={{ color: 'var(--warning)' }}>{fmt(stats.totalPendente)}</div>
                     <div className="stat-label">Total Pendente</div>
                 </div>
-                <div className={`stat-card ${(stats.boletosHoje + stats.boletosVencidos) > 0 ? 'danger' : 'primary'}`}>
+                <div className={`stat-card ${stats.boletosVencidos > 0 ? 'danger' : stats.boletosHoje > 0 ? 'warning' : 'primary'}`}>
                     <div className="stat-icon">
                         <i className="fas fa-barcode"></i>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                        <div className="stat-value" style={{
-                            color: stats.boletosHoje > 0 ? 'var(--danger)' : stats.boletosVencidos > 0 ? 'var(--danger)' : 'var(--text-muted)',
-                        }}>
-                            {stats.boletosHoje + stats.boletosVencidos}
-                        </div>
+                    <div className="stat-value" style={{
+                        color: stats.boletosVencidos > 0 ? 'var(--danger)' : stats.boletosHoje > 0 ? 'var(--warning)' : 'var(--text)',
+                    }}>
+                        {stats.boletosPendentes}
                     </div>
                     <div className="stat-label">
-                        {stats.boletosHoje > 0
-                            ? `${stats.boletosHoje} venc. hoje${stats.boletosVencidos > 0 ? ` · ${stats.boletosVencidos} atrasado${stats.boletosVencidos > 1 ? 's' : ''}` : ''}`
-                            : stats.boletosVencidos > 0
-                                ? `${stats.boletosVencidos} boleto${stats.boletosVencidos > 1 ? 's' : ''} atrasado${stats.boletosVencidos > 1 ? 's' : ''}`
+                        {stats.boletosVencidos > 0
+                            ? `⚠️ ${stats.boletosVencidos} atrasado${stats.boletosVencidos > 1 ? 's' : ''}${stats.boletosHoje > 0 ? ` · ${stats.boletosHoje} hoje` : ''}`
+                            : stats.boletosHoje > 0
+                                ? `🔔 ${stats.boletosHoje} vence${stats.boletosHoje > 1 ? 'm' : ''} hoje`
                                 : 'Boletos pendentes'}
                     </div>
                 </div>
