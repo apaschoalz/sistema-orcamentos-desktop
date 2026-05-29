@@ -169,7 +169,7 @@ function App() {
 
                 <div className="sidebar-footer">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        {appVersion ? `v${appVersion}` : 'v1.4.4'} | © 2025 Entre Tramas
+                        {appVersion ? `v${appVersion}` : 'v1.4.5'} | © 2025 Entre Tramas
                     </div>
                 </div>
             </aside>

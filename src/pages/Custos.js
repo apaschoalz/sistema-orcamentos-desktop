@@ -125,7 +125,7 @@ const Custos = () => {
         });
     }, [custos, filtroStatus, filtroCategoria, busca, today]);
 
-    // ── Stats (calculados sobre a lista filtrada/visível) ──────────────────
+    // ── Stats (totais usam lista filtrada; boletos sempre da lista completa) ─
     const stats = useMemo(() => {
         const base = custosVisiveis;
         const doMes = base.filter(c => (c.data_vencimento || '').startsWith(mesAtual));
@@ -133,18 +133,19 @@ const Custos = () => {
             totalMes: doMes.reduce((s, c) => s + (c.valor || 0), 0),
             totalPago: base.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0),
             totalPendente: base.filter(c => c.status === 'Pendente').reduce((s, c) => s + (c.valor || 0), 0),
-            boletosHoje: base.filter(c =>
+            // Boletos: sempre da lista não filtrada — são alertas independentes do filtro ativo
+            boletosHoje: custos.filter(c =>
                 c.categoria === 'Boleto Bancário' &&
                 c.data_vencimento === today &&
                 c.status === 'Pendente'
             ).length,
-            boletosVencidos: base.filter(c =>
+            boletosVencidos: custos.filter(c =>
                 c.categoria === 'Boleto Bancário' &&
                 c.data_vencimento < today &&
                 c.status === 'Pendente'
             ).length,
         };
-    }, [custosVisiveis, mesAtual, today]);
+    }, [custosVisiveis, custos, mesAtual, today]);
 
     // ── Form handlers ─────────────────────────────────────────────────────
     const openForm = (custo = null) => {
@@ -256,11 +257,24 @@ const Custos = () => {
             </div>
 
             {/* ── Stats Cards ──────────────────────────────────────────── */}
-            <div className="stats-grid" style={{ marginBottom: '28px' }}>
+            <div style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 20,
+                background: 'var(--bg-dark)',
+                paddingTop: '10px',
+                paddingBottom: '12px',
+                marginBottom: '8px',
+                marginLeft: '-40px',
+                marginRight: '-40px',
+                paddingLeft: '40px',
+                paddingRight: '40px',
+            }}>
+            <div className="stats-grid" style={{ marginBottom: '0' }}>
                 <div className="stat-card primary">
                     <div className="stat-icon"><i className="fas fa-calendar-alt"></i></div>
                     <div className="stat-value">{fmt(stats.totalMes)}</div>
-                    <div className="stat-label">Lançado este mês</div>
+                    <div className="stat-label">Vencimento este mês</div>
                 </div>
                 <div className="stat-card success">
                     <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
@@ -291,6 +305,7 @@ const Custos = () => {
                                 : 'Boletos pendentes'}
                     </div>
                 </div>
+            </div>
             </div>
 
             {/* ── Alert banner: boletos vencendo hoje ──────────────────── */}
