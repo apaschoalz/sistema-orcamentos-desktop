@@ -627,15 +627,16 @@ const Custos = () => {
                         <p>Tente outros termos ou remova os filtros.</p>
                     </div>
                 ) : (
-                    <table className="table" style={{ tableLayout: 'fixed' }}>
+                    <table className="table" style={{ tableLayout: 'fixed', minWidth: '920px' }}>
                         <colgroup>
-                            <col style={{ width: '23%' }} />
-                            <col style={{ width: '12%' }} />
-                            <col style={{ width: '12%' }} />
+                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '11%' }} />
+                            <col style={{ width: '11%' }} />
                             <col style={{ width: '10%' }} />
                             <col style={{ width: '9%' }} />
+                            <col style={{ width: '11%' }} />
                             <col style={{ width: '12%' }} />
-                            <col style={{ width: '22%' }} />
+                            <col style={{ width: '14%' }} />
                         </colgroup>
                             <thead>
                                 <tr>
@@ -645,7 +646,8 @@ const Custos = () => {
                                     <th>Vencimento</th>
                                     <th>Pgto.</th>
                                     <th style={{ textAlign: 'right' }}>Valor</th>
-                                    <th style={{ textAlign: 'right' }}>Status / Ações</th>
+                                    <th>Status</th>
+                                    <th style={{ textAlign: 'right' }}>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -715,35 +717,31 @@ const Custos = () => {
                                             <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                                 {fmt(c.valor)}
                                             </td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                                                    {/* Badge de status */}
-                                                    <span className={`badge ${c.status === 'Pago' ? 'badge-approved' : 'badge-pending'}`}>
-                                                        {c.status === 'Pago' ? (
-                                                            <><i className="fas fa-check"></i> Pago</>
-                                                        ) : (
-                                                            <><i className="fas fa-clock"></i> Pendente</>
-                                                        )}
-                                                    </span>
-                                                    {/* Botões de ação */}
-                                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                            <td style={{ paddingRight: '6px' }}>
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.76rem', fontWeight: 500,
+                                                    background: c.status === 'Pago' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                                                    color: c.status === 'Pago' ? 'var(--secondary)' : 'var(--warning)',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    <i className={`fas ${c.status === 'Pago' ? 'fa-check' : 'fa-clock'}`} style={{ fontSize: '0.68rem' }}></i>
+                                                    {c.status === 'Pago' ? 'Pago' : 'Pendente'}
+                                                </span>
+                                            </td>
+                                            <td style={{ textAlign: 'right', paddingLeft: '6px' }}>
+                                                <div style={{ display: 'flex', gap: '3px', justifyContent: 'flex-end', alignItems: 'center' }}>
                                                     {c.status === 'Pendente' ? (
                                                         <button
                                                             title="Marcar como Pago"
                                                             onClick={() => handleMarcarPago(c)}
                                                             style={{
-                                                                padding: '4px 8px',
-                                                                borderRadius: '7px',
+                                                                padding: '3px 7px', borderRadius: '6px',
                                                                 border: '1px solid rgba(201,169,98,0.35)',
                                                                 background: 'rgba(201,169,98,0.12)',
-                                                                color: 'var(--secondary)',
-                                                                cursor: 'pointer',
-                                                                fontSize: '0.75rem',
-                                                                fontWeight: 600,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px',
-                                                                whiteSpace: 'nowrap'
+                                                                color: 'var(--secondary)', cursor: 'pointer',
+                                                                fontSize: '0.72rem', fontWeight: 600,
+                                                                display: 'flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap'
                                                             }}
                                                         >
                                                             <i className="fas fa-check"></i> Pago
@@ -753,18 +751,12 @@ const Custos = () => {
                                                             title="Desfazer pagamento"
                                                             onClick={() => handleDesmarcarPago(c)}
                                                             style={{
-                                                                padding: '4px 8px',
-                                                                borderRadius: '7px',
+                                                                padding: '3px 7px', borderRadius: '6px',
                                                                 border: '1px solid rgba(199,93,93,0.3)',
                                                                 background: 'rgba(199,93,93,0.08)',
-                                                                color: 'var(--danger)',
-                                                                cursor: 'pointer',
-                                                                fontSize: '0.75rem',
-                                                                fontWeight: 600,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px',
-                                                                whiteSpace: 'nowrap'
+                                                                color: 'var(--danger)', cursor: 'pointer',
+                                                                fontSize: '0.72rem', fontWeight: 600,
+                                                                display: 'flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap'
                                                             }}
                                                         >
                                                             <i className="fas fa-undo"></i> Desfazer
@@ -784,8 +776,7 @@ const Custos = () => {
                                                     >
                                                         <i className="fas fa-trash"></i>
                                                     </button>
-                                                    </div>{/* fim botões */}
-                                                </div>{/* fim coluna status+ações */}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
