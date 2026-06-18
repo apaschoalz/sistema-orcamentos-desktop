@@ -10,6 +10,9 @@ function Orcamentos() {
     const [loading, setLoading] = useState(true);
     const [filtroStatus, setFiltroStatus] = useState(searchParams.get('status') || '');
     const [busca, setBusca] = useState('');
+    const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
+    const [periodoInicio, setPeriodoInicio] = useState('');
+    const [periodoFim, setPeriodoFim] = useState('');
 
     useEffect(() => {
         loadOrcamentos();
@@ -71,12 +74,48 @@ function Orcamentos() {
         return badges[status] || 'badge-pending';
     };
 
+    const getToday = () => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    };
+
+    const checkPeriodoOrc = (dateStr) => {
+        if (filtroPeriodo === 'todos') return true;
+        if (!dateStr) return false;
+        const d = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        const todayStr = getToday();
+        if (filtroPeriodo === 'hoje') return d === todayStr;
+        if (filtroPeriodo === 'este_mes') return d.startsWith(todayStr.slice(0, 7));
+        if (filtroPeriodo === 'este_ano') return d.startsWith(todayStr.slice(0, 4));
+        if (filtroPeriodo === 'esta_semana') {
+            const now = new Date(todayStr + 'T12:00:00');
+            const day = now.getDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            const mon = new Date(now); mon.setDate(now.getDate() + diff);
+            const monStr = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+            return d >= monStr && d <= todayStr;
+        }
+        if (filtroPeriodo === 'ultimos_3_meses') {
+            const d3m = new Date(todayStr + 'T12:00:00'); d3m.setMonth(d3m.getMonth() - 3);
+            const d3mStr = `${d3m.getFullYear()}-${String(d3m.getMonth()+1).padStart(2,'0')}-${String(d3m.getDate()).padStart(2,'0')}`;
+            return d >= d3mStr && d <= todayStr;
+        }
+        if (filtroPeriodo === 'personalizado') {
+            if (periodoInicio && d < periodoInicio) return false;
+            if (periodoFim && d > periodoFim) return false;
+            return true;
+        }
+        return true;
+    };
+
     const porStatus = filtroStatus
         ? orcamentos.filter(o => o.status === filtroStatus)
         : orcamentos;
 
+    const porPeriodo = porStatus.filter(o => checkPeriodoOrc(o.created_at));
+
     const filteredOrcamentos = busca.trim()
-        ? porStatus.filter(o => {
+        ? porPeriodo.filter(o => {
             const q = busca.toLowerCase();
             return (
                 (o.numero             || '').toLowerCase().includes(q) ||
@@ -88,7 +127,7 @@ function Orcamentos() {
                 (o.cliente_cidade     || '').toLowerCase().includes(q)
             );
         })
-        : porStatus;
+        : porPeriodo;
 
     if (loading) {
         return (
@@ -111,9 +150,10 @@ function Orcamentos() {
                 </Link>
             </div>
 
-            {/* Busca */}
-            <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Filtros */}
+            <div className="card" style={{ padding: '16px 22px', marginBottom: '16px' }}>
+                {/* Busca */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                     <i className="fas fa-search" style={{ color: 'var(--text-muted)' }}></i>
                     <input
                         type="text"
@@ -121,25 +161,18 @@ function Orcamentos() {
                         placeholder="Buscar por número, cliente, CPF, e-mail, endereço..."
                         value={busca}
                         onChange={e => setBusca(e.target.value)}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, marginBottom: 0 }}
                     />
-                    {busca && (
-                        <button className="btn btn-sm btn-secondary" onClick={() => setBusca('')}>
-                            <i className="fas fa-times"></i> Limpar
+                    {(busca || filtroStatus || filtroPeriodo !== 'todos') && (
+                        <button className="btn btn-sm btn-secondary" onClick={() => { setBusca(''); setFiltroStatus(''); setSearchParams({}); setFiltroPeriodo('todos'); setPeriodoInicio(''); setPeriodoFim(''); }}>
+                            <i className="fas fa-times"></i> Limpar tudo
                         </button>
                     )}
                 </div>
-                {busca && (
-                    <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {filteredOrcamentos.length} resultado(s) encontrado(s)
-                    </p>
-                )}
-            </div>
 
-            {/* Filtros */}
-            <div className="card">
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Filtrar por status:</span>
+                {/* Status */}
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.83rem', whiteSpace: 'nowrap' }}>Status:</span>
                     <button
                         className={`btn btn-sm ${!filtroStatus ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => { setFiltroStatus(''); setSearchParams({}); }}
@@ -165,6 +198,51 @@ function Orcamentos() {
                         <i className="fas fa-times"></i> Reprovados
                     </button>
                 </div>
+
+                {/* Período */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.83rem', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-calendar-alt" style={{ marginRight: '5px' }}></i>Período:
+                    </span>
+                    {[
+                        { key: 'hoje', label: 'Hoje' },
+                        { key: 'esta_semana', label: 'Esta semana' },
+                        { key: 'este_mes', label: 'Este mês' },
+                        { key: 'ultimos_3_meses', label: 'Últimos 3 meses' },
+                        { key: 'este_ano', label: 'Este ano' },
+                        { key: 'todos', label: 'Todos' },
+                        { key: 'personalizado', label: <><i className="fas fa-sliders-h"></i> Personalizado</> },
+                    ].map(opt => (
+                        <button
+                            key={opt.key}
+                            className={`btn btn-sm ${filtroPeriodo === opt.key ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setFiltroPeriodo(opt.key)}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+
+                {filtroPeriodo === 'personalizado' && (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>De:</label>
+                        <input type="date" className="form-input" style={{ width: '160px', marginBottom: 0 }} value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} />
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Até:</label>
+                        <input type="date" className="form-input" style={{ width: '160px', marginBottom: 0 }} value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} />
+                        {(filtroPeriodo !== 'todos') && (
+                            <button className="btn btn-sm btn-secondary" onClick={() => { setFiltroPeriodo('todos'); setPeriodoInicio(''); setPeriodoFim(''); }}>
+                                <i className="fas fa-times"></i> Limpar
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {(filtroPeriodo !== 'todos' || filtroStatus || busca) && (
+                    <div style={{ marginTop: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {filteredOrcamentos.length} orçamento{filteredOrcamentos.length !== 1 ? 's' : ''}
+                        {orcamentos.length !== filteredOrcamentos.length && ` de ${orcamentos.length}`}
+                    </div>
+                )}
             </div>
 
             {/* Lista */}

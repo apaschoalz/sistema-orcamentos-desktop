@@ -8,6 +8,9 @@ function Vendas() {
     const [vendas, setVendas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [busca, setBusca] = useState('');
+    const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
+    const [periodoInicio, setPeriodoInicio] = useState('');
+    const [periodoFim, setPeriodoFim] = useState('');
 
     // Estados para o gráfico
     const [showChartModal, setShowChartModal] = useState(false);
@@ -145,9 +148,44 @@ function Vendas() {
         );
     }
 
-    // Filtro de busca
+    const getToday = () => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    };
+
+    const checkPeriodoVenda = (dateStr) => {
+        if (filtroPeriodo === 'todos') return true;
+        if (!dateStr) return false;
+        const d = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        const todayStr = getToday();
+        if (filtroPeriodo === 'hoje') return d === todayStr;
+        if (filtroPeriodo === 'este_mes') return d.startsWith(todayStr.slice(0, 7));
+        if (filtroPeriodo === 'este_ano') return d.startsWith(todayStr.slice(0, 4));
+        if (filtroPeriodo === 'esta_semana') {
+            const now = new Date(todayStr + 'T12:00:00');
+            const day = now.getDay();
+            const diff = day === 0 ? -6 : 1 - day;
+            const mon = new Date(now); mon.setDate(now.getDate() + diff);
+            const monStr = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+            return d >= monStr && d <= todayStr;
+        }
+        if (filtroPeriodo === 'ultimos_3_meses') {
+            const d3m = new Date(todayStr + 'T12:00:00'); d3m.setMonth(d3m.getMonth() - 3);
+            const d3mStr = `${d3m.getFullYear()}-${String(d3m.getMonth()+1).padStart(2,'0')}-${String(d3m.getDate()).padStart(2,'0')}`;
+            return d >= d3mStr && d <= todayStr;
+        }
+        if (filtroPeriodo === 'personalizado') {
+            if (periodoInicio && d < periodoInicio) return false;
+            if (periodoFim && d > periodoFim) return false;
+            return true;
+        }
+        return true;
+    };
+
+    // Filtro de período + busca
+    const vendasPorPeriodo = vendas.filter(v => checkPeriodoVenda(v.data_venda));
     const vendasFiltradas = busca.trim()
-        ? vendas.filter(v => {
+        ? vendasPorPeriodo.filter(v => {
             const q = busca.toLowerCase();
             return (
                 (v.cliente_nome    || '').toLowerCase().includes(q) ||
@@ -160,11 +198,11 @@ function Vendas() {
                 (v.orcamento_numero|| '').toLowerCase().includes(q)
             );
         })
-        : vendas;
+        : vendasPorPeriodo;
 
-    // Calcular totais
-    const totalVendas = vendas.reduce((acc, v) => acc + (v.valor || 0), 0);
-    const totalLucro = vendas.reduce((acc, v) => acc + (v.lucro || 0), 0);
+    // Calcular totais com base no período selecionado
+    const totalVendas = vendasPorPeriodo.reduce((acc, v) => acc + (v.valor || 0), 0);
+    const totalLucro = vendasPorPeriodo.reduce((acc, v) => acc + (v.lucro || 0), 0);
 
     // Novo Gráfico de Barras (Alinhado à Esquerda e Dinâmico)
     const renderChart = () => {
@@ -305,9 +343,10 @@ function Vendas() {
                 </div>
             </div>
 
-            {/* Busca */}
-            <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Filtros */}
+            <div className="card" style={{ padding: '16px 22px', marginBottom: '16px' }}>
+                {/* Busca */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                     <i className="fas fa-search" style={{ color: 'var(--text-muted)' }}></i>
                     <input
                         type="text"
@@ -315,18 +354,53 @@ function Vendas() {
                         placeholder="Buscar por cliente, CPF, e-mail, endereço, código..."
                         value={busca}
                         onChange={e => setBusca(e.target.value)}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, marginBottom: 0 }}
                     />
-                    {busca && (
-                        <button className="btn btn-sm btn-secondary" onClick={() => setBusca('')}>
+                    {(busca || filtroPeriodo !== 'todos') && (
+                        <button className="btn btn-sm btn-secondary" onClick={() => { setBusca(''); setFiltroPeriodo('todos'); setPeriodoInicio(''); setPeriodoFim(''); }}>
                             <i className="fas fa-times"></i> Limpar
                         </button>
                     )}
                 </div>
-                {busca && (
-                    <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {vendasFiltradas.length} resultado(s) encontrado(s)
-                    </p>
+
+                {/* Período */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.83rem', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-calendar-alt" style={{ marginRight: '5px' }}></i>Período:
+                    </span>
+                    {[
+                        { key: 'hoje', label: 'Hoje' },
+                        { key: 'esta_semana', label: 'Esta semana' },
+                        { key: 'este_mes', label: 'Este mês' },
+                        { key: 'ultimos_3_meses', label: 'Últimos 3 meses' },
+                        { key: 'este_ano', label: 'Este ano' },
+                        { key: 'todos', label: 'Todos' },
+                        { key: 'personalizado', label: <><i className="fas fa-sliders-h"></i> Personalizado</> },
+                    ].map(opt => (
+                        <button
+                            key={opt.key}
+                            className={`btn btn-sm ${filtroPeriodo === opt.key ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setFiltroPeriodo(opt.key)}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+
+                {filtroPeriodo === 'personalizado' && (
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>De:</label>
+                        <input type="date" className="form-input" style={{ width: '160px', marginBottom: 0 }} value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} />
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Até:</label>
+                        <input type="date" className="form-input" style={{ width: '160px', marginBottom: 0 }} value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} />
+                    </div>
+                )}
+
+                {(filtroPeriodo !== 'todos' || busca) && (
+                    <div style={{ marginTop: '8px', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                        {vendasFiltradas.length} venda{vendasFiltradas.length !== 1 ? 's' : ''}
+                        {vendas.length !== vendasFiltradas.length && ` de ${vendas.length}`}
+                    </div>
                 )}
             </div>
 
