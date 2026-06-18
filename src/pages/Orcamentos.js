@@ -108,6 +108,23 @@ function Orcamentos() {
         return true;
     };
 
+    // Stats: filtro só de período (sem status) para manter todos os cards visíveis
+    const orcPorPeriodo = orcamentos.filter(o => checkPeriodoOrc(o.created_at));
+    const stats = {
+        pendentes: {
+            count: orcPorPeriodo.filter(o => o.status === 'Pendente').length,
+            total: orcPorPeriodo.filter(o => o.status === 'Pendente').reduce((s, o) => s + (o.valor_total || 0), 0),
+        },
+        aprovados: {
+            count: orcPorPeriodo.filter(o => o.status === 'Aprovado').length,
+            total: orcPorPeriodo.filter(o => o.status === 'Aprovado').reduce((s, o) => s + (o.valor_total || 0), 0),
+        },
+        reprovados: {
+            count: orcPorPeriodo.filter(o => o.status === 'Reprovado').length,
+            total: orcPorPeriodo.filter(o => o.status === 'Reprovado').reduce((s, o) => s + (o.valor_total || 0), 0),
+        },
+    };
+
     const porStatus = filtroStatus
         ? orcamentos.filter(o => o.status === filtroStatus)
         : orcamentos;
@@ -148,6 +165,61 @@ function Orcamentos() {
                     <i className="fas fa-plus"></i>
                     Novo Orçamento
                 </Link>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="stats-grid" style={{ marginBottom: '20px' }}>
+                <div
+                    className={`stat-card ${filtroStatus === 'Pendente' ? 'warning' : 'primary'}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                        const next = filtroStatus === 'Pendente' ? '' : 'Pendente';
+                        setFiltroStatus(next);
+                        next ? setSearchParams({ status: next }) : setSearchParams({});
+                    }}
+                    title="Clique para filtrar por Pendentes"
+                >
+                    <div className="stat-icon"><i className="fas fa-clock"></i></div>
+                    <div className="stat-value" style={{ color: 'var(--warning)' }}>{formatCurrency(stats.pendentes.total)}</div>
+                    <div className="stat-label">
+                        {stats.pendentes.count} Pendente{stats.pendentes.count !== 1 ? 's' : ''}
+                        {filtroStatus === 'Pendente' && <span style={{ marginLeft: '6px', fontSize: '0.72rem', opacity: 0.7 }}>(filtrado)</span>}
+                    </div>
+                </div>
+                <div
+                    className={`stat-card ${filtroStatus === 'Aprovado' ? 'success' : 'primary'}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                        const next = filtroStatus === 'Aprovado' ? '' : 'Aprovado';
+                        setFiltroStatus(next);
+                        next ? setSearchParams({ status: next }) : setSearchParams({});
+                    }}
+                    title="Clique para filtrar por Aprovados"
+                >
+                    <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
+                    <div className="stat-value" style={{ color: 'var(--secondary)' }}>{formatCurrency(stats.aprovados.total)}</div>
+                    <div className="stat-label">
+                        {stats.aprovados.count} Aprovado{stats.aprovados.count !== 1 ? 's' : ''}
+                        {filtroStatus === 'Aprovado' && <span style={{ marginLeft: '6px', fontSize: '0.72rem', opacity: 0.7 }}>(filtrado)</span>}
+                    </div>
+                </div>
+                <div
+                    className={`stat-card ${filtroStatus === 'Reprovado' ? 'danger' : 'primary'}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => {
+                        const next = filtroStatus === 'Reprovado' ? '' : 'Reprovado';
+                        setFiltroStatus(next);
+                        next ? setSearchParams({ status: next }) : setSearchParams({});
+                    }}
+                    title="Clique para filtrar por Reprovados"
+                >
+                    <div className="stat-icon"><i className="fas fa-times-circle"></i></div>
+                    <div className="stat-value" style={{ color: 'var(--danger)' }}>{formatCurrency(stats.reprovados.total)}</div>
+                    <div className="stat-label">
+                        {stats.reprovados.count} Reprovado{stats.reprovados.count !== 1 ? 's' : ''}
+                        {filtroStatus === 'Reprovado' && <span style={{ marginLeft: '6px', fontSize: '0.72rem', opacity: 0.7 }}>(filtrado)</span>}
+                    </div>
+                </div>
             </div>
 
             {/* Filtros */}
