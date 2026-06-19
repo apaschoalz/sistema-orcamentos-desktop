@@ -37,6 +37,10 @@ const Custos = () => {
     const [filtroCategoria, setFiltroCategoria] = useState('todas');
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState(FORM_EMPTY);
+    const [filtroPeriodo, setFiltroPeriodo] = useState('todos');
+    const [periodoInicio, setPeriodoInicio] = useState('');
+    const [periodoFim, setPeriodoFim] = useState('');
+    const [fornecedores, setFornecedores] = useState([]);
 
     // ── Categorias personalizadas ──────────────────────────────────────────
     const [customCats, setCustomCats] = useState([]);
@@ -49,9 +53,17 @@ const Custos = () => {
     }, [customCats]);
 
     const today = getLocalDateStr();
-    const mesAtual = today.slice(0, 7);
 
-    useEffect(() => { loadCustos(); loadCustomCats(); }, [syncVersion]);
+    useEffect(() => { loadCustos(); loadCustomCats(); loadFornecedores(); }, [syncVersion]);
+
+    const loadFornecedores = async () => {
+        try {
+            const data = await window.electronAPI.getFornecedores();
+            setFornecedores(data || []);
+        } catch (e) {
+            console.error('Erro ao carregar fornecedores:', e);
+        }
+    };
 
     const loadCustomCats = async () => {
         try {
@@ -101,9 +113,41 @@ const Custos = () => {
         }
     };
 
+    // ── Filtro de período (usa data_vencimento) ───────────────────────────
+    const custosPorPeriodo = useMemo(() => {
+        if (filtroPeriodo === 'todos') return custos;
+        return custos.filter(c => {
+            const dateStr = c.data_vencimento;
+            if (!dateStr) return false;
+            const d = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+            if (filtroPeriodo === 'hoje') return d === today;
+            if (filtroPeriodo === 'este_mes') return d.startsWith(today.slice(0, 7));
+            if (filtroPeriodo === 'este_ano') return d.startsWith(today.slice(0, 4));
+            if (filtroPeriodo === 'esta_semana') {
+                const now = new Date(today + 'T12:00:00');
+                const day = now.getDay();
+                const diff = day === 0 ? -6 : 1 - day;
+                const mon = new Date(now); mon.setDate(now.getDate() + diff);
+                const monStr = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`;
+                return d >= monStr && d <= today;
+            }
+            if (filtroPeriodo === 'ultimos_3_meses') {
+                const d3m = new Date(today + 'T12:00:00'); d3m.setMonth(d3m.getMonth() - 3);
+                const d3mStr = `${d3m.getFullYear()}-${String(d3m.getMonth()+1).padStart(2,'0')}-${String(d3m.getDate()).padStart(2,'0')}`;
+                return d >= d3mStr && d <= today;
+            }
+            if (filtroPeriodo === 'personalizado') {
+                if (periodoInicio && d < periodoInicio) return false;
+                if (periodoFim && d > periodoFim) return false;
+                return true;
+            }
+            return true;
+        });
+    }, [custos, filtroPeriodo, periodoInicio, periodoFim, today]);
+
     // ── Filtered list (calculado primeiro para alimentar os stats) ────────
     const custosVisiveis = useMemo(() => {
-        let r = [...custos];
+        let r = [...custosPorPeriodo];
         if (filtroStatus !== 'todos') r = r.filter(c => c.status === filtroStatus);
         if (filtroCategoria !== 'todas') r = r.filter(c => c.categoria === filtroCategoria);
         if (busca) {
@@ -123,17 +167,24 @@ const Custos = () => {
             if (prioA !== prioB) return prioA - prioB;
             return (a.data_vencimento || '').localeCompare(b.data_vencimento || '');
         });
-    }, [custos, filtroStatus, filtroCategoria, busca, today]);
+    }, [custosPorPeriodo, filtroStatus, filtroCategoria, busca, today]);
 
     // ── Stats (totais usam lista filtrada; boletos sempre da lista completa) ─
     const stats = useMemo(() => {
         const base = custosVisiveis;
-        const doMes = base.filter(c => (c.data_vencimento || '').startsWith(mesAtual));
+        const labelPeriodo = filtroPeriodo === 'hoje' ? 'Hoje'
+            : filtroPeriodo === 'esta_semana' ? 'Esta semana'
+            : filtroPeriodo === 'este_mes' ? 'Este mês'
+            : filtroPeriodo === 'ultimos_3_meses' ? 'Últimos 3 meses'
+            : filtroPeriodo === 'este_ano' ? 'Este ano'
+            : filtroPeriodo === 'personalizado' ? 'Período'
+            : 'Total geral';
         return {
-            totalMes: doMes.reduce((s, c) => s + (c.valor || 0), 0),
+            totalPeriodo: base.reduce((s, c) => s + (c.valor || 0), 0),
+            labelPeriodo,
             totalPago: base.filter(c => c.status === 'Pago').reduce((s, c) => s + (c.valor || 0), 0),
             totalPendente: base.filter(c => c.status === 'Pendente').reduce((s, c) => s + (c.valor || 0), 0),
-            // Boletos: sempre da lista não filtrada — são alertas independentes do filtro ativo
+            // Boletos: sempre da lista não filtrada — alertas independentes do filtro ativo
             boletosPendentes: custos.filter(c =>
                 c.categoria === 'Boleto Bancário' &&
                 c.status === 'Pendente'
@@ -149,7 +200,7 @@ const Custos = () => {
                 c.status === 'Pendente'
             ).length,
         };
-    }, [custosVisiveis, custos, mesAtual, today]);
+    }, [custosVisiveis, custos, filtroPeriodo, today]);
 
     // ── Form handlers ─────────────────────────────────────────────────────
     const openForm = (custo = null) => {
@@ -277,8 +328,8 @@ const Custos = () => {
             <div className="stats-grid" style={{ marginBottom: '0' }}>
                 <div className="stat-card primary">
                     <div className="stat-icon"><i className="fas fa-calendar-alt"></i></div>
-                    <div className="stat-value">{fmt(stats.totalMes)}</div>
-                    <div className="stat-label">Vencimento este mês</div>
+                    <div className="stat-value">{fmt(stats.totalPeriodo)}</div>
+                    <div className="stat-label">{stats.labelPeriodo}</div>
                 </div>
                 <div className="stat-card success">
                     <div className="stat-icon"><i className="fas fa-check-circle"></i></div>
@@ -399,8 +450,13 @@ const Custos = () => {
                                     name="fornecedor"
                                     value={form.fornecedor}
                                     onChange={handleInput}
-                                    placeholder="Nome do fornecedor"
+                                    placeholder="Selecione ou digite..."
+                                    list="fornecedores-datalist"
+                                    autoComplete="off"
                                 />
+                                <datalist id="fornecedores-datalist">
+                                    {fornecedores.map(f => <option key={f.id} value={f.nome} />)}
+                                </datalist>
                             </div>
                         </div>
 
@@ -463,6 +519,39 @@ const Custos = () => {
 
             {/* ── Filters ──────────────────────────────────────────────── */}
             <div className="card" style={{ padding: '16px 22px', marginBottom: '16px' }}>
+                {/* Filtro de período */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '4px', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-calendar" style={{ marginRight: '4px' }}></i>Período:
+                    </span>
+                    {[
+                        { v: 'todos', l: 'Todos' },
+                        { v: 'hoje', l: 'Hoje' },
+                        { v: 'esta_semana', l: 'Esta semana' },
+                        { v: 'este_mes', l: 'Este mês' },
+                        { v: 'ultimos_3_meses', l: 'Últimos 3 meses' },
+                        { v: 'este_ano', l: 'Este ano' },
+                        { v: 'personalizado', l: 'Personalizado' },
+                    ].map(({ v, l }) => (
+                        <button key={v} onClick={() => setFiltroPeriodo(v)} style={{
+                            padding: '4px 12px', borderRadius: '20px', fontSize: '0.78rem', cursor: 'pointer',
+                            border: filtroPeriodo === v ? '1px solid var(--primary)' : '1px solid var(--border)',
+                            background: filtroPeriodo === v ? 'rgba(139,115,85,0.2)' : 'transparent',
+                            color: filtroPeriodo === v ? 'var(--primary)' : 'var(--text-muted)',
+                            fontWeight: filtroPeriodo === v ? 600 : 400, whiteSpace: 'nowrap',
+                        }}>{l}</button>
+                    ))}
+                </div>
+                {filtroPeriodo === 'personalizado' && (
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>De:</span>
+                        <input type="date" className="form-input" value={periodoInicio} onChange={e => setPeriodoInicio(e.target.value)} style={{ width: '160px', marginBottom: 0 }} />
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Até:</span>
+                        <input type="date" className="form-input" value={periodoFim} onChange={e => setPeriodoFim(e.target.value)} style={{ width: '160px', marginBottom: 0 }} />
+                    </div>
+                )}
+
+                {/* Busca + status + categoria */}
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
                         <i className="fas fa-search" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '0.85rem' }}></i>
@@ -492,8 +581,11 @@ const Custos = () => {
                     >
                         <i className="fas fa-tags"></i> Categorias
                     </button>
-                    {(busca || filtroStatus !== 'todos' || filtroCategoria !== 'todas') && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setBusca(''); setFiltroStatus('todos'); setFiltroCategoria('todas'); }}>
+                    {(busca || filtroStatus !== 'todos' || filtroCategoria !== 'todas' || filtroPeriodo !== 'todos') && (
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            setBusca(''); setFiltroStatus('todos'); setFiltroCategoria('todas');
+                            setFiltroPeriodo('todos'); setPeriodoInicio(''); setPeriodoFim('');
+                        }}>
                             <i className="fas fa-times"></i> Limpar
                         </button>
                     )}
