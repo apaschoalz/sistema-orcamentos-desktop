@@ -7,6 +7,7 @@ function VendaDetalhes() {
     const navigate = useNavigate();
     const syncVersion = useSyncVersion();
     const [venda, setVenda] = useState(null);
+    const [itensOrcamento, setItensOrcamento] = useState([]);
     const [loading, setLoading] = useState(true);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -20,6 +21,12 @@ function VendaDetalhes() {
                 const data = await window.electronAPI.getVendaById(id);
                 setVenda(data);
                 setHasUnsavedChanges(false);
+                if (data?.orcamento_id) {
+                    const itens = await window.electronAPI.getItensOrcamento(data.orcamento_id);
+                    setItensOrcamento(Array.isArray(itens) ? itens : []);
+                } else {
+                    setItensOrcamento([]);
+                }
             }
         } catch (error) {
             console.error('Erro ao carregar venda:', error);
@@ -63,6 +70,7 @@ function VendaDetalhes() {
         } else if (tipo === 'Cortina') {
             return [
                 'Pedir para a fábrica',
+                'Aguardando entrega da fábrica',
                 'Tecido no estoque',
                 'Enviado a costureira',
                 'No estoque (Separação)',
@@ -486,6 +494,70 @@ function VendaDetalhes() {
                     <p style={{ backgroundColor: '#f9f9f9', padding: '10px', borderRadius: '4px', marginTop: '5px', whiteSpace: 'pre-wrap' }}>{venda.observacoes || 'Nenhuma observação registrada.'}</p>
                 </div>
             </div>
+
+            {/* Itens do Orçamento */}
+            {itensOrcamento.length > 0 && (
+                <div className="card">
+                    <div className="card-header">
+                        <h2 className="card-title">
+                            <i className="fas fa-list-ul" style={{ marginRight: '10px', color: 'var(--primary)' }}></i>
+                            Itens do Orçamento
+                            {venda.orcamento_numero && (
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '8px' }}>
+                                    #{venda.orcamento_numero}
+                                </span>
+                            )}
+                        </h2>
+                    </div>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: '60px' }}>Qtd</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th style={{ textAlign: 'right' }}>Valor Unit.</th>
+                                    <th style={{ textAlign: 'right' }}>Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {itensOrcamento.map((item, idx) => (
+                                    <tr key={item.id || idx}>
+                                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.quantidade}</td>
+                                        <td>{item.descricao || '—'}</td>
+                                        <td>
+                                            {item.categoria ? (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '0.78rem',
+                                                    background: 'rgba(139,115,85,0.1)',
+                                                    color: 'var(--primary)',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {item.categoria}
+                                                </span>
+                                            ) : '—'}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>{formatCurrency(item.valor_unitario)}</td>
+                                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(item.valor_total)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr style={{ borderTop: '2px solid var(--border)' }}>
+                                    <td colSpan={4} style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                        TOTAL DOS ITENS
+                                    </td>
+                                    <td style={{ textAlign: 'right', fontWeight: 700, paddingTop: '10px', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                                        {formatCurrency(itensOrcamento.reduce((acc, i) => acc + (i.valor_total || 0), 0))}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Acompanhamento do Pedido (Workflow) */}
             <div className="card">
