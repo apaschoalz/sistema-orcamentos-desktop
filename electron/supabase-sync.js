@@ -32,6 +32,23 @@ class SupabaseSync {
         const key = this.db.getConfig('supabase.anon_key');
 
         if (url && key) {
+            // Limpar conexão anterior ANTES de criar novo cliente.
+            // Guardar refs do cliente antigo — removeChannel deve ser chamado
+            // no mesmo client que criou o canal, não no novo.
+            const oldClient = this.supabase;
+            const oldChannel = this.realtimeChannel;
+            this.supabase = null;
+            this.realtimeChannel = null;
+            this.isConfigured = false;
+
+            if (oldClient && oldChannel) {
+                try {
+                    await oldClient.removeChannel(oldChannel);
+                } catch (e) {
+                    console.warn('[Sync] Erro ao remover canal anterior (ignorado):', e.message);
+                }
+            }
+
             this.supabase = createClient(url, key);
             this.isConfigured = true;
             console.log('Supabase configurado com sucesso');
@@ -61,9 +78,14 @@ class SupabaseSync {
 
         console.log('Iniciando escuta Realtime...');
 
-        // Remover canais anteriores se houver (para evitar duplicidade no re-init)
+        // Remover canal anterior se houver (safety net)
         if (this.realtimeChannel) {
-            this.supabase.removeChannel(this.realtimeChannel);
+            try {
+                this.supabase.removeChannel(this.realtimeChannel);
+            } catch (e) {
+                console.warn('[Sync] Erro ao remover canal duplicado (ignorado):', e.message);
+            }
+            this.realtimeChannel = null;
         }
 
         this.realtimeChannel = this.supabase
