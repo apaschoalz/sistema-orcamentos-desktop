@@ -459,7 +459,7 @@ class SupabaseSync {
                 .select('*')
                 .eq('orcamento_id', orcamentoId);
             if (error) throw error;
-            if (!data || data.length === 0) return;
+            if (!data || data.length === 0) return [];
 
             this.db.setSyncing(true);
             try {

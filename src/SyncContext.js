@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 // Contexto global de sincronização
 // Qualquer componente pode assinar syncVersion e ser re-renderizado quando dados chegam da nuvem
@@ -7,13 +7,25 @@ export const SyncContext = createContext({ syncVersion: 0 });
 export function SyncProvider({ children }) {
     const [syncVersion, setSyncVersion] = useState(0);
     const [syncIndicator, setSyncIndicator] = useState(null); // { table, eventType }
+    const debounceTimer = useRef(null);
+    const pendingInfo = useRef(null);
 
     const triggerSync = useCallback((info) => {
-        setSyncVersion(v => v + 1);
-        if (info) {
-            setSyncIndicator(info);
-            setTimeout(() => setSyncIndicator(null), 3000);
-        }
+        // Acumula o info mais recente
+        pendingInfo.current = info;
+        // Debounce 250ms: espera parar de receber eventos antes de subir syncVersion
+        // Isso evita N re-renders quando N itens chegam via Realtime um por um
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            const latestInfo = pendingInfo.current;
+            setSyncVersion(v => v + 1);
+            if (latestInfo) {
+                setSyncIndicator(latestInfo);
+                setTimeout(() => setSyncIndicator(null), 3000);
+            }
+            debounceTimer.current = null;
+            pendingInfo.current = null;
+        }, 250);
     }, []);
 
     useEffect(() => {

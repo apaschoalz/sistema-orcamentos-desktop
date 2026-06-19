@@ -60,13 +60,19 @@ function NovoOrcamento() {
         }
     }, [id]);
 
-    // Quando chega evento de sync do outro terminal, recarregar itens e metadados do orçamento
+    // Quando chega evento de sync do outro terminal, recarregar itens do banco local.
+    // O SyncContext tem debounce de 250ms, garantindo que todos os itens do batch
+    // já foram gravados localmente pelo Realtime antes deste efeito executar.
     useEffect(() => {
         if (!isEditing || !id) return;
         const reloadFromDB = async () => {
             try {
                 const itensOrc = await window.electronAPI.getItensOrcamento(id);
-                if (itensOrc && itensOrc.length > 0) setItens(itensOrc);
+                if (Array.isArray(itensOrc)) {
+                    setItens(itensOrc.length > 0 ? itensOrc : [
+                        { id: uuidv4(), quantidade: 1, descricao: '', valor_unitario: 0, valor_total: 0, categoria: '' }
+                    ]);
+                }
             } catch (e) {
                 console.warn('[NovoOrcamento] Erro ao recarregar itens via syncVersion:', e);
             }
@@ -153,7 +159,7 @@ function NovoOrcamento() {
                     //    que eventos Realtime tenham sido perdidos)
                     if (window.electronAPI.syncItensFromRemote) {
                         window.electronAPI.syncItensFromRemote(id).then(itensFrescos => {
-                            if (itensFrescos && itensFrescos.length > 0) {
+                            if (Array.isArray(itensFrescos) && itensFrescos.length > 0) {
                                 setItens(itensFrescos);
                             }
                         }).catch(err => console.warn('[NovoOrcamento] syncItensFromRemote:', err));
