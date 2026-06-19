@@ -10,11 +10,19 @@ function Configuracoes() {
     const [appVersion, setAppVersion] = useState('');
     const [checkingUpdate, setCheckingUpdate] = useState(false);
     const [updateMsg, setUpdateMsg] = useState('');
+    const [passwordSet, setPasswordSet] = useState(false);
+    const [senhaAtual, setSenhaAtual] = useState('');
+    const [senhaNova, setSenhaNova] = useState('');
+    const [senhaConfirm, setSenhaConfirm] = useState('');
+    const [senhaMsg, setSenhaMsg] = useState('');
 
     useEffect(() => {
         loadConfig();
         if (window.electronAPI?.getAppVersion) {
             window.electronAPI.getAppVersion().then(v => setAppVersion(v));
+        }
+        if (window.electronAPI?.isAdminPasswordSet) {
+            window.electronAPI.isAdminPasswordSet().then(set => setPasswordSet(set));
         }
     }, []);
 
@@ -390,6 +398,63 @@ function Configuracoes() {
                         className="form-input"
                         placeholder="Copie o ID da URL da pasta"
                     />
+                </div>
+            </div>
+
+            {/* Segurança */}
+            <div className="card">
+                <h3 style={{ marginBottom: '20px' }}>
+                    <i className="fas fa-shield-alt" style={{ marginRight: '10px', color: 'var(--warning)' }}></i>
+                    Segurança
+                </h3>
+
+                {!passwordSet && (
+                    <div style={{ background: 'rgba(255,193,7,0.1)', border: '1px solid rgba(255,193,7,0.3)', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', color: 'var(--warning)', fontSize: '0.9rem' }}>
+                        <i className="fas fa-exclamation-triangle" style={{ marginRight: '8px' }}></i>
+                        Nenhuma senha de acesso definida. Defina uma abaixo para proteger esta área.
+                    </div>
+                )}
+
+                <div style={{ display: 'grid', gap: '14px', maxWidth: '380px' }}>
+                    {passwordSet && (
+                        <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label">Senha atual</label>
+                            <input type="password" className="form-input" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} placeholder="Digite a senha atual" />
+                        </div>
+                    )}
+                    <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Nova senha</label>
+                        <input type="password" className="form-input" value={senhaNova} onChange={e => setSenhaNova(e.target.value)} placeholder="Nova senha (mínimo 6 caracteres)" />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Confirmar nova senha</label>
+                        <input type="password" className="form-input" value={senhaConfirm} onChange={e => setSenhaConfirm(e.target.value)} placeholder="Repita a nova senha" />
+                    </div>
+
+                    {senhaMsg && (
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: senhaMsg.startsWith('✅') ? 'var(--secondary)' : 'var(--danger)' }}>{senhaMsg}</p>
+                    )}
+
+                    <button
+                        className="btn btn-warning"
+                        style={{ alignSelf: 'flex-start' }}
+                        onClick={async () => {
+                            setSenhaMsg('');
+                            if (senhaNova.length < 6) { setSenhaMsg('❌ A nova senha deve ter pelo menos 6 caracteres.'); return; }
+                            if (senhaNova !== senhaConfirm) { setSenhaMsg('❌ As senhas não coincidem.'); return; }
+                            if (passwordSet) {
+                                const ok = await window.electronAPI.checkAdminPassword(senhaAtual);
+                                if (!ok) { setSenhaMsg('❌ Senha atual incorreta.'); return; }
+                            }
+                            await window.electronAPI.setConfig('admin.password', senhaNova);
+                            setPasswordSet(true);
+                            setSenhaAtual(''); setSenhaNova(''); setSenhaConfirm('');
+                            setSenhaMsg('✅ Senha alterada com sucesso!');
+                        }}
+                    >
+                        <i className="fas fa-key" style={{ marginRight: '8px' }}></i>
+                        {passwordSet ? 'Alterar Senha' : 'Definir Senha'}
+                    </button>
                 </div>
             </div>
 

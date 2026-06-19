@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getConfig: (chave) => ipcRenderer.invoke('db:getConfig', chave),
     setConfig: (chave, valor) => ipcRenderer.invoke('db:setConfig', chave, valor),
     getAllConfig: () => ipcRenderer.invoke('db:getAllConfig'),
+    checkAdminPassword: (senha) => ipcRenderer.invoke('db:checkAdminPassword', senha),
+    isAdminPasswordSet: () => ipcRenderer.invoke('db:isAdminPasswordSet'),
 
     // Fornecedores
     getFornecedores: () => ipcRenderer.invoke('db:getFornecedores'),

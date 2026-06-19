@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ProtectedRoute = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [checking, setChecking] = useState(false);
+    const [passwordSet, setPasswordSet] = useState(true);
 
-    const correctPassword = process.env.REACT_APP_ADMIN_PASSWORD || 'Carpisatkl12v*#';
+    useEffect(() => {
+        window.electronAPI.isAdminPasswordSet?.().then(set => setPasswordSet(set));
+    }, []);
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        if (password === correctPassword) {
-            setIsAuthenticated(true);
-            setError('');
-        } else {
-            setError('Senha incorreta');
+        setChecking(true);
+        try {
+            const ok = await window.electronAPI.checkAdminPassword(password);
+            if (ok) {
+                setIsAuthenticated(true);
+                setError('');
+            } else {
+                setError('Senha incorreta');
+            }
+        } catch (err) {
+            setError('Erro ao verificar senha');
+        } finally {
+            setChecking(false);
         }
     };
 
@@ -47,21 +59,32 @@ const ProtectedRoute = ({ children }) => {
                 </div>
 
                 <h2 style={{ marginBottom: '10px' }}>Acesso Restrito</h2>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>
-                    Esta área contém configurações sensíveis. Por favor, digite a senha de administrador.
-                </p>
+
+                {!passwordSet ? (
+                    <p style={{ color: 'var(--warning)', marginBottom: '24px', fontSize: '0.9rem' }}>
+                        <i className="fas fa-exclamation-triangle" style={{ marginRight: '6px' }}></i>
+                        Nenhuma senha configurada. Clique em <strong>Acessar</strong> e defina uma senha em <strong>Configurações → Segurança</strong>.
+                    </p>
+                ) : (
+                    <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>
+                        Esta área contém configurações sensíveis. Por favor, digite a senha de administrador.
+                    </p>
+                )}
 
                 <form onSubmit={handleLogin}>
-                    <div className="form-group">
-                        <input
-                            type="password"
-                            className="form-input"
-                            placeholder="Senha"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            autoFocus
-                        />
-                    </div>
+                    {passwordSet && (
+                        <div className="form-group">
+                            <input
+                                type="password"
+                                className="form-input"
+                                placeholder="Senha"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                autoFocus
+                                disabled={checking}
+                            />
+                        </div>
+                    )}
 
                     {error && (
                         <div style={{ color: 'var(--danger)', marginBottom: '15px', fontSize: '0.9rem' }}>
@@ -69,8 +92,8 @@ const ProtectedRoute = ({ children }) => {
                         </div>
                     )}
 
-                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                        Acessar
+                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={checking}>
+                        {checking ? 'Verificando...' : 'Acessar'}
                     </button>
                 </form>
             </div>

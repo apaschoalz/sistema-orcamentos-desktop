@@ -45,7 +45,7 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
-            devTools: true           // Habilitar DevTools em produção
+            devTools: !app.isPackaged
         },
         icon: path.join(__dirname, '../assets/icon.png'),
         title: 'Entre Tramas - Sistema de Orçamentos',
@@ -63,13 +63,15 @@ function createWindow() {
         // DevTools fechado por padrão em produção (use F12 para abrir)
     }
 
-    // Atalho F12 para alternar DevTools
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-        if (input.key === 'F12' && input.type === 'keyDown') {
-            mainWindow.webContents.toggleDevTools();
-            event.preventDefault();
-        }
-    });
+    // F12 abre DevTools apenas em desenvolvimento
+    if (!app.isPackaged) {
+        mainWindow.webContents.on('before-input-event', (event, input) => {
+            if (input.key === 'F12' && input.type === 'keyDown') {
+                mainWindow.webContents.toggleDevTools();
+                event.preventDefault();
+            }
+        });
+    }
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -483,7 +485,7 @@ ipcMain.handle('db:getConfig', async (event, chave) => {
 ipcMain.handle('db:setConfig', async (event, chave, valor) => {
     const result = db.setConfig(chave, valor);
     // Sincronizar configurações compartilhadas com o Supabase (exceto credenciais)
-    const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key']);
+    const CHAVES_LOCAIS = new Set(['supabase.url', 'supabase.anon_key', 'admin.password']);
     if (supabaseSync && supabaseSync.checkConnection() && !CHAVES_LOCAIS.has(chave)) {
         try {
             await supabaseSync.supabase
@@ -497,7 +499,23 @@ ipcMain.handle('db:setConfig', async (event, chave, valor) => {
 });
 
 ipcMain.handle('db:getAllConfig', async () => {
-    return db.getAllConfig();
+    const cfg = db.getAllConfig();
+    delete cfg['admin.password']; // nunca expor a senha ao renderer
+    return cfg;
+});
+
+// Verifica senha de admin — comparação ocorre no processo principal,
+// nunca exposta no bundle React.
+// Se nenhuma senha estiver configurada no banco, libera o acesso
+// para o usuário entrar em Configurações e definir uma nova.
+ipcMain.handle('db:checkAdminPassword', async (event, tentativa) => {
+    const stored = db.getConfig('admin.password');
+    if (!stored) return true;
+    return tentativa === stored;
+});
+
+ipcMain.handle('db:isAdminPasswordSet', async () => {
+    return !!db.getConfig('admin.password');
 });
 
 // Versão do app
