@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSyncVersion } from '../SyncContext';
 
@@ -10,6 +10,7 @@ function Clientes() {
     const [termo, setTermo] = useState('');
     const [exportando, setExportando] = useState(false);
     const [mensagem, setMensagem] = useState(null);
+    const [ordenacao, setOrdenacao] = useState('nome_asc');
 
     useEffect(() => {
         loadClientes();
@@ -77,6 +78,19 @@ function Clientes() {
         return date.toLocaleDateString('pt-BR');
     };
 
+    const clientesOrdenados = useMemo(() => {
+        const lista = [...clientes];
+        switch (ordenacao) {
+            case 'nome_asc':  return lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'));
+            case 'nome_desc': return lista.sort((a, b) => (b.nome || '').localeCompare(a.nome || '', 'pt-BR'));
+            case 'data_desc': return lista.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            case 'data_asc':  return lista.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            case 'valor_desc': return lista.sort((a, b) => (b.total_orcamentos || 0) - (a.total_orcamentos || 0));
+            case 'valor_asc':  return lista.sort((a, b) => (a.total_orcamentos || 0) - (b.total_orcamentos || 0));
+            default: return lista;
+        }
+    }, [clientes, ordenacao]);
+
     if (loading) {
         return (
             <div className="loading">
@@ -84,6 +98,15 @@ function Clientes() {
             </div>
         );
     }
+
+    const SORT_OPTS = [
+        { key: 'nome_asc',   label: 'A → Z',        icon: 'fa-sort-alpha-down' },
+        { key: 'nome_desc',  label: 'Z → A',        icon: 'fa-sort-alpha-up' },
+        { key: 'data_desc',  label: 'Mais recente', icon: 'fa-sort-amount-down' },
+        { key: 'data_asc',   label: 'Mais antigo',  icon: 'fa-sort-amount-up' },
+        { key: 'valor_desc', label: 'Maior valor',  icon: 'fa-sort-numeric-down' },
+        { key: 'valor_asc',  label: 'Menor valor',  icon: 'fa-sort-numeric-up' },
+    ];
 
     return (
         <div>
@@ -121,9 +144,9 @@ function Clientes() {
                 </div>
             )}
 
-            {/* Campo de Busca */}
+            {/* Campo de Busca + Ordenação */}
             <div className="card">
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
                     <div className="search-box" style={{ flex: 1, maxWidth: 'none' }}>
                         <i className="fas fa-search"></i>
                         <input
@@ -143,6 +166,26 @@ function Clientes() {
                         <i className="fas fa-times"></i>
                         Limpar
                     </button>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '4px' }}>
+                        <i className="fas fa-sort" style={{ marginRight: '4px' }}></i>Ordenar:
+                    </span>
+                    {SORT_OPTS.map(opt => (
+                        <button
+                            key={opt.key}
+                            onClick={() => setOrdenacao(opt.key)}
+                            style={{
+                                padding: '5px 12px', borderRadius: '20px', border: '1px solid var(--border)',
+                                fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                                background: ordenacao === opt.key ? 'var(--primary)' : 'var(--bg-card)',
+                                color: ordenacao === opt.key ? '#fff' : 'var(--text-muted)',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <i className={`fas ${opt.icon}`} style={{ marginRight: '5px' }}></i>{opt.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -168,7 +211,7 @@ function Clientes() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {clientes.map((cliente) => (
+                                {clientesOrdenados.map((cliente) => (
                                     <tr key={cliente.id} onClick={() => navigate(`/clientes/${cliente.id}`)} style={{ cursor: 'pointer' }} className="clickable-row">
                                         <td><strong>{cliente.nome}</strong></td>
                                         <td>{cliente.cpf_cnpj || '-'}</td>

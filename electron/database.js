@@ -212,6 +212,20 @@ class AppDatabase {
                 }
             }
 
+            // Migrações Orçamentos (desconto)
+            const tableOrcamentosExists = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='orcamentos'").get();
+            if (tableOrcamentosExists) {
+                const columnsOrc = this.db.prepare("PRAGMA table_info(orcamentos)").all();
+                if (!columnsOrc.some(col => col.name === 'desconto_tipo')) {
+                    this.db.exec("ALTER TABLE orcamentos ADD COLUMN desconto_tipo TEXT DEFAULT 'percentual'");
+                    console.log('Migração: coluna desconto_tipo adicionada em orcamentos');
+                }
+                if (!columnsOrc.some(col => col.name === 'desconto_valor')) {
+                    this.db.exec("ALTER TABLE orcamentos ADD COLUMN desconto_valor REAL DEFAULT 0");
+                    console.log('Migração: coluna desconto_valor adicionada em orcamentos');
+                }
+            }
+
             // Migração: tabela vendas (Create if not exists já está no createTables, mas mantendo histórico aqui se necessário)
             /* 
                A lógica original criava a tabela no runMigrations se não existisse, 
@@ -441,7 +455,12 @@ class AppDatabase {
     // ========================================
 
     getClientes() {
-        return this.db.prepare('SELECT * FROM clientes ORDER BY created_at DESC').all();
+        return this.db.prepare(`
+            SELECT c.*,
+                COALESCE((SELECT SUM(o.valor_total) FROM orcamentos o WHERE o.cliente_id = c.id), 0) as total_orcamentos
+            FROM clientes c
+            ORDER BY c.created_at DESC
+        `).all();
     }
 
     getClientesComOrcamento() {
@@ -799,9 +818,10 @@ class AppDatabase {
         let numero = orcamento.numero || this.getNextNumero();
 
         const stmt = this.db.prepare(`
-            INSERT INTO orcamentos (id, numero, cliente_id, vendedor, status, valor_total, 
+            INSERT INTO orcamentos (id, numero, cliente_id, vendedor, status, valor_total,
+                                    desconto_tipo, desconto_valor,
                                     observacoes, prazo_pagamento, prazo_entrega, garantia, pdf_path, sync_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         const doInsert = (numAttempt) => {
@@ -813,6 +833,8 @@ class AppDatabase {
                     orcamento.vendedor || null,
                     orcamento.status || 'Pendente',
                     orcamento.valor_total || 0,
+                    orcamento.desconto_tipo || 'percentual',
+                    orcamento.desconto_valor || 0,
                     orcamento.observacoes || null,
                     orcamento.prazo_pagamento || null,
                     orcamento.prazo_entrega || null,
@@ -853,6 +875,8 @@ class AppDatabase {
             vendedor: orcamento.vendedor !== undefined ? orcamento.vendedor : existing.vendedor,
             status: orcamento.status !== undefined ? orcamento.status : existing.status,
             valor_total: orcamento.valor_total !== undefined ? orcamento.valor_total : existing.valor_total,
+            desconto_tipo: orcamento.desconto_tipo !== undefined ? orcamento.desconto_tipo : (existing.desconto_tipo || 'percentual'),
+            desconto_valor: orcamento.desconto_valor !== undefined ? orcamento.desconto_valor : (existing.desconto_valor || 0),
             observacoes: orcamento.observacoes !== undefined ? orcamento.observacoes : existing.observacoes,
             prazo_pagamento: orcamento.prazo_pagamento !== undefined ? orcamento.prazo_pagamento : existing.prazo_pagamento,
             prazo_entrega: orcamento.prazo_entrega !== undefined ? orcamento.prazo_entrega : existing.prazo_entrega,
@@ -868,6 +892,8 @@ class AppDatabase {
                 vendedor = ?,
                 status = ?,
                 valor_total = ?,
+                desconto_tipo = ?,
+                desconto_valor = ?,
                 observacoes = ?,
                 prazo_pagamento = ?,
                 prazo_entrega = ?,
@@ -882,6 +908,8 @@ class AppDatabase {
             merged.vendedor,
             merged.status,
             merged.valor_total,
+            merged.desconto_tipo,
+            merged.desconto_valor,
             merged.observacoes,
             merged.prazo_pagamento,
             merged.prazo_entrega,

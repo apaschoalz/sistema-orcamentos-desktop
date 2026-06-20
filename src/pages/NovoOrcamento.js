@@ -51,6 +51,9 @@ function NovoOrcamento() {
         { id: uuidv4(), quantidade: 1, descricao: '', valor_unitario: 0, valor_total: 0, categoria: '' }
     ]);
 
+    // Desconto
+    const [desconto, setDesconto] = useState({ tipo: 'percentual', valor: '' });
+
     useEffect(() => {
         loadConfig();
         if (isEditing) {
@@ -148,6 +151,9 @@ function NovoOrcamento() {
                         prazo_entrega: orc.prazo_entrega || '',
                         garantia: orc.garantia || ''
                     });
+                    if (orc.desconto_valor) {
+                        setDesconto({ tipo: orc.desconto_tipo || 'percentual', valor: String(orc.desconto_valor) });
+                    }
 
                     // 1. Carregar itens locais (rápido)
                     const itensLocais = await window.electronAPI.getItensOrcamento(id);
@@ -362,9 +368,16 @@ function NovoOrcamento() {
         }
     };
 
-    const getTotal = () => {
-        return itens.reduce((sum, item) => sum + (parseFloat(item.valor_total) || 0), 0);
+    const getSubtotal = () => itens.reduce((sum, item) => sum + (parseFloat(item.valor_total) || 0), 0);
+
+    const getDescontoValor = () => {
+        const sub = getSubtotal();
+        const val = parseFloat(desconto.valor) || 0;
+        if (desconto.tipo === 'percentual') return sub * (val / 100);
+        return Math.min(val, sub);
     };
+
+    const getTotal = () => Math.max(0, getSubtotal() - getDescontoValor());
 
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
@@ -452,6 +465,8 @@ function NovoOrcamento() {
                     ...orcamento,
                     numero: numero,
                     cliente_id: clienteId,
+                    desconto_tipo: desconto.tipo,
+                    desconto_valor: parseFloat(desconto.valor) || 0,
                     valor_total: getTotal()
                 };
 
@@ -763,6 +778,67 @@ function NovoOrcamento() {
                         </button>
                     </div>
                 ))}
+
+                {/* Desconto */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+                    padding: '14px 16px', background: 'var(--bg-card-hover)', borderRadius: '10px',
+                    marginBottom: '10px', marginTop: '4px'
+                }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                        <i className="fas fa-tag" style={{ marginRight: '6px' }}></i>DESCONTO
+                    </span>
+                    <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setDesconto(d => ({ ...d, tipo: 'percentual' }))}
+                            style={{
+                                padding: '6px 14px', fontWeight: 600, fontSize: '0.85rem', border: 'none', cursor: 'pointer',
+                                background: desconto.tipo === 'percentual' ? 'var(--primary)' : 'var(--bg-card)',
+                                color: desconto.tipo === 'percentual' ? '#fff' : 'var(--text-muted)'
+                            }}
+                        >%</button>
+                        <button
+                            type="button"
+                            onClick={() => setDesconto(d => ({ ...d, tipo: 'valor' }))}
+                            style={{
+                                padding: '6px 14px', fontWeight: 600, fontSize: '0.85rem', border: 'none', cursor: 'pointer',
+                                background: desconto.tipo === 'valor' ? 'var(--primary)' : 'var(--bg-card)',
+                                color: desconto.tipo === 'valor' ? '#fff' : 'var(--text-muted)'
+                            }}
+                        >R$</button>
+                    </div>
+                    <input
+                        type="number" min="0"
+                        value={desconto.valor}
+                        onChange={e => setDesconto(d => ({ ...d, valor: e.target.value }))}
+                        className="form-input"
+                        placeholder={desconto.tipo === 'percentual' ? '0%' : '0,00'}
+                        step={desconto.tipo === 'percentual' ? '1' : '0.01'}
+                        style={{ width: '130px' }}
+                    />
+                    {(parseFloat(desconto.valor) > 0) && (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
+                            − {formatCurrency(getDescontoValor())}
+                        </span>
+                    )}
+                    {(parseFloat(desconto.valor) > 0) && (
+                        <button type="button" style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.8rem' }}
+                            onClick={() => setDesconto({ tipo: 'percentual', valor: '' })}>
+                            <i className="fas fa-times"></i> Remover
+                        </button>
+                    )}
+                </div>
+
+                {/* Totais */}
+                {(parseFloat(desconto.valor) > 0) && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '24px', padding: '0 8px 8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                        <span>Subtotal: <strong>{formatCurrency(getSubtotal())}</strong></span>
+                        <span style={{ color: 'var(--danger)' }}>
+                            Desconto: <strong>− {formatCurrency(getDescontoValor())}</strong>
+                        </span>
+                    </div>
+                )}
 
                 <div className="total-box">
                     <span className="total-label">VALOR TOTAL:</span>
